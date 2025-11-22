@@ -1,0 +1,3 @@
+/home/juggling/build/CMakeFiles/test_drake.dir
+/home/juggling/build/CMakeFiles/edit_cache.dir
+/home/juggling/build/CMakeFiles/rebuild_cache.dir
