@@ -117,41 +117,41 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named test_drake
+# Target rules for targets named juggling_demo
 
 # Build rule for target.
-test_drake: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 test_drake
-.PHONY : test_drake
+juggling_demo: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 juggling_demo
+.PHONY : juggling_demo
 
 # fast build rule for target.
-test_drake/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_drake.dir/build.make CMakeFiles/test_drake.dir/build
-.PHONY : test_drake/fast
+juggling_demo/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling_demo.dir/build.make CMakeFiles/juggling_demo.dir/build
+.PHONY : juggling_demo/fast
 
-test_drake.o: test_drake.cc.o
-.PHONY : test_drake.o
+juggling_demo.o: juggling_demo.cc.o
+.PHONY : juggling_demo.o
 
 # target to build an object file
-test_drake.cc.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_drake.dir/build.make CMakeFiles/test_drake.dir/test_drake.cc.o
-.PHONY : test_drake.cc.o
+juggling_demo.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling_demo.dir/build.make CMakeFiles/juggling_demo.dir/juggling_demo.cc.o
+.PHONY : juggling_demo.cc.o
 
-test_drake.i: test_drake.cc.i
-.PHONY : test_drake.i
+juggling_demo.i: juggling_demo.cc.i
+.PHONY : juggling_demo.i
 
 # target to preprocess a source file
-test_drake.cc.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_drake.dir/build.make CMakeFiles/test_drake.dir/test_drake.cc.i
-.PHONY : test_drake.cc.i
+juggling_demo.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling_demo.dir/build.make CMakeFiles/juggling_demo.dir/juggling_demo.cc.i
+.PHONY : juggling_demo.cc.i
 
-test_drake.s: test_drake.cc.s
-.PHONY : test_drake.s
+juggling_demo.s: juggling_demo.cc.s
+.PHONY : juggling_demo.s
 
 # target to generate assembly for a file
-test_drake.cc.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/test_drake.dir/build.make CMakeFiles/test_drake.dir/test_drake.cc.s
-.PHONY : test_drake.cc.s
+juggling_demo.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling_demo.dir/build.make CMakeFiles/juggling_demo.dir/juggling_demo.cc.s
+.PHONY : juggling_demo.cc.s
 
 # Help Target
 help:
@@ -161,10 +161,10 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... test_drake"
-	@echo "... test_drake.o"
-	@echo "... test_drake.i"
-	@echo "... test_drake.s"
+	@echo "... juggling_demo"
+	@echo "... juggling_demo.o"
+	@echo "... juggling_demo.i"
+	@echo "... juggling_demo.s"
 .PHONY : help
 
 
