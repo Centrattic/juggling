@@ -423,6 +423,7 @@ CMakeFiles/juggling_demo.dir/juggling_demo.cc.o: /home/juggling/juggling_demo.cc
   /usr/include/c++/13/iomanip \
   /usr/include/c++/13/ios \
   /usr/include/c++/13/iosfwd \
+  /usr/include/c++/13/iostream \
   /usr/include/c++/13/istream \
   /usr/include/c++/13/iterator \
   /usr/include/c++/13/limits \
@@ -1295,6 +1296,10 @@ CMakeFiles/juggling_demo.dir/juggling_demo.cc.o: /home/juggling/juggling_demo.cc
 
 /usr/include/eigen3/Eigen/src/Core/Replicate.h:
 
+/usr/include/x86_64-linux-gnu/sys/single_threaded.h:
+
+/usr/include/eigen3/Eigen/src/Core/Ref.h:
+
 /usr/include/c++/13/bits/locale_classes.tcc:
 
 /usr/include/eigen3/Eigen/src/SparseLU/SparseLU_pivotL.h:
@@ -1352,10 +1357,6 @@ CMakeFiles/juggling_demo.dir/juggling_demo.cc.o: /home/juggling/juggling_demo.cc
 /opt/drake/include/drake/systems/framework/diagram_continuous_state.h:
 
 /usr/include/c++/13/memory:
-
-/usr/include/x86_64-linux-gnu/sys/single_threaded.h:
-
-/usr/include/eigen3/Eigen/src/Core/Ref.h:
 
 /opt/drake/include/drake/common/extract_double.h:
 
@@ -2068,6 +2069,8 @@ CMakeFiles/juggling_demo.dir/juggling_demo.cc.o: /home/juggling/juggling_demo.cc
 /usr/include/c++/13/bits/stl_iterator_base_funcs.h:
 
 /usr/include/eigen3/Eigen/src/Core/BandMatrix.h:
+
+/usr/include/c++/13/iostream:
 
 /usr/include/asm-generic/errno.h:
 

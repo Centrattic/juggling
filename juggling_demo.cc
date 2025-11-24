@@ -15,6 +15,7 @@
 #include <drake/multibody/tree/weld_joint.h>
 #include <drake/systems/analysis/simulator.h>
 #include <drake/systems/framework/diagram_builder.h>
+#include <drake/geometry/shape_specification.h>
 
 using drake::geometry::Meshcat;
 using drake::geometry::MeshcatVisualizer;
@@ -124,7 +125,8 @@ int main() {
             0.1,
             1.0,
             0.1,
-            1.0)
+            1.0
+        )
     ); // green
 
     // Cup
@@ -149,8 +151,22 @@ int main() {
     );
 
     mbp.RegisterVisualGeometry(
-        cup
-    )
+        cup,
+        RigidTransformd::Identity(),
+        drake::geometry::Mesh(
+            "file:///home/juggling/meshes/cup_cone.stl",
+            1.0 // scale
+        ),
+        "cup_visual",
+        Eigen::Vector4d(
+            0.7,
+            0.7,
+            0.7,
+            1.0
+        )
+    );
+
+    // Welding joints, and collision geo
 
     mbp.AddJoint<WeldJoint>(
         "weld_cup",
@@ -167,11 +183,19 @@ int main() {
         RigidTransformd::Identity() // X_FM
     );                                
 
+    // care about collision with cup, not links
     mbp.RegisterCollisionGeometry(
         cup,
-        RigidTransformd::Identity(),
-        drake::geometry::Sphere(
-            cup_radius
+        RigidTransformd(
+            Eigen::Vector3d(
+                0,
+                0,
+                cup_height / 2.0
+            )
+        ),
+        drake::geometry::Cylinder( // approximating as cylinder still
+            cup_radius,
+            cup_height
         ),
         "cup_collision",
         CoulombFriction<double>(
