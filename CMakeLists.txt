@@ -1,7 +1,7 @@
 cmake_minimum_required(VERSION 3.16)
-project(juggling_demo)
+project(juggling)
 
 find_package(drake CONFIG REQUIRED)
 
-add_executable(juggling_demo juggling_demo.cc)
-target_link_libraries(juggling_demo drake::drake)
+add_executable(juggling juggling.cc arm_with_cup.cc)
+target_link_libraries(juggling drake::drake)

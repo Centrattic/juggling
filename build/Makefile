@@ -117,41 +117,65 @@ depend:
 .PHONY : depend
 
 #=============================================================================
-# Target rules for targets named juggling_demo
+# Target rules for targets named juggling
 
 # Build rule for target.
-juggling_demo: cmake_check_build_system
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 juggling_demo
-.PHONY : juggling_demo
+juggling: cmake_check_build_system
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 juggling
+.PHONY : juggling
 
 # fast build rule for target.
-juggling_demo/fast:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling_demo.dir/build.make CMakeFiles/juggling_demo.dir/build
-.PHONY : juggling_demo/fast
+juggling/fast:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/build
+.PHONY : juggling/fast
 
-juggling_demo.o: juggling_demo.cc.o
-.PHONY : juggling_demo.o
+arm_with_cup.o: arm_with_cup.cc.o
+.PHONY : arm_with_cup.o
 
 # target to build an object file
-juggling_demo.cc.o:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling_demo.dir/build.make CMakeFiles/juggling_demo.dir/juggling_demo.cc.o
-.PHONY : juggling_demo.cc.o
+arm_with_cup.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/arm_with_cup.cc.o
+.PHONY : arm_with_cup.cc.o
 
-juggling_demo.i: juggling_demo.cc.i
-.PHONY : juggling_demo.i
+arm_with_cup.i: arm_with_cup.cc.i
+.PHONY : arm_with_cup.i
 
 # target to preprocess a source file
-juggling_demo.cc.i:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling_demo.dir/build.make CMakeFiles/juggling_demo.dir/juggling_demo.cc.i
-.PHONY : juggling_demo.cc.i
+arm_with_cup.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/arm_with_cup.cc.i
+.PHONY : arm_with_cup.cc.i
 
-juggling_demo.s: juggling_demo.cc.s
-.PHONY : juggling_demo.s
+arm_with_cup.s: arm_with_cup.cc.s
+.PHONY : arm_with_cup.s
 
 # target to generate assembly for a file
-juggling_demo.cc.s:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling_demo.dir/build.make CMakeFiles/juggling_demo.dir/juggling_demo.cc.s
-.PHONY : juggling_demo.cc.s
+arm_with_cup.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/arm_with_cup.cc.s
+.PHONY : arm_with_cup.cc.s
+
+juggling.o: juggling.cc.o
+.PHONY : juggling.o
+
+# target to build an object file
+juggling.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/juggling.cc.o
+.PHONY : juggling.cc.o
+
+juggling.i: juggling.cc.i
+.PHONY : juggling.i
+
+# target to preprocess a source file
+juggling.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/juggling.cc.i
+.PHONY : juggling.cc.i
+
+juggling.s: juggling.cc.s
+.PHONY : juggling.s
+
+# target to generate assembly for a file
+juggling.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/juggling.cc.s
+.PHONY : juggling.cc.s
 
 # Help Target
 help:
@@ -161,10 +185,13 @@ help:
 	@echo "... depend"
 	@echo "... edit_cache"
 	@echo "... rebuild_cache"
-	@echo "... juggling_demo"
-	@echo "... juggling_demo.o"
-	@echo "... juggling_demo.i"
-	@echo "... juggling_demo.s"
+	@echo "... juggling"
+	@echo "... arm_with_cup.o"
+	@echo "... arm_with_cup.i"
+	@echo "... arm_with_cup.s"
+	@echo "... juggling.o"
+	@echo "... juggling.i"
+	@echo "... juggling.s"
 .PHONY : help
 
 

@@ -63,7 +63,7 @@ CMAKE_BINARY_DIR = /home/juggling/build
 # Directory level rules for the build root directory
 
 # The main recursive "all" target.
-all: CMakeFiles/juggling_demo.dir/all
+all: CMakeFiles/juggling.dir/all
 .PHONY : all
 
 # The main recursive "preinstall" target.
@@ -71,34 +71,34 @@ preinstall:
 .PHONY : preinstall
 
 # The main recursive "clean" target.
-clean: CMakeFiles/juggling_demo.dir/clean
+clean: CMakeFiles/juggling.dir/clean
 .PHONY : clean
 
 #=============================================================================
-# Target rules for target CMakeFiles/juggling_demo.dir
+# Target rules for target CMakeFiles/juggling.dir
 
 # All Build rule for target.
-CMakeFiles/juggling_demo.dir/all:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling_demo.dir/build.make CMakeFiles/juggling_demo.dir/depend
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling_demo.dir/build.make CMakeFiles/juggling_demo.dir/build
-	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/juggling/build/CMakeFiles --progress-num=1,2 "Built target juggling_demo"
-.PHONY : CMakeFiles/juggling_demo.dir/all
+CMakeFiles/juggling.dir/all:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/depend
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/build
+	@$(CMAKE_COMMAND) -E cmake_echo_color "--switch=$(COLOR)" --progress-dir=/home/juggling/build/CMakeFiles --progress-num=1,2,3 "Built target juggling"
+.PHONY : CMakeFiles/juggling.dir/all
 
 # Build rule for subdir invocation for target.
-CMakeFiles/juggling_demo.dir/rule: cmake_check_build_system
-	$(CMAKE_COMMAND) -E cmake_progress_start /home/juggling/build/CMakeFiles 2
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/juggling_demo.dir/all
+CMakeFiles/juggling.dir/rule: cmake_check_build_system
+	$(CMAKE_COMMAND) -E cmake_progress_start /home/juggling/build/CMakeFiles 3
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/Makefile2 CMakeFiles/juggling.dir/all
 	$(CMAKE_COMMAND) -E cmake_progress_start /home/juggling/build/CMakeFiles 0
-.PHONY : CMakeFiles/juggling_demo.dir/rule
+.PHONY : CMakeFiles/juggling.dir/rule
 
 # Convenience name for target.
-juggling_demo: CMakeFiles/juggling_demo.dir/rule
-.PHONY : juggling_demo
+juggling: CMakeFiles/juggling.dir/rule
+.PHONY : juggling
 
 # clean rule for target.
-CMakeFiles/juggling_demo.dir/clean:
-	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling_demo.dir/build.make CMakeFiles/juggling_demo.dir/clean
-.PHONY : CMakeFiles/juggling_demo.dir/clean
+CMakeFiles/juggling.dir/clean:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/clean
+.PHONY : CMakeFiles/juggling.dir/clean
 
 #=============================================================================
 # Special targets to cleanup operation of make.

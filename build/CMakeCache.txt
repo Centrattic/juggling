@@ -148,7 +148,7 @@ CMAKE_PROJECT_DESCRIPTION:STATIC=
 CMAKE_PROJECT_HOMEPAGE_URL:STATIC=
 
 //Value Computed by CMake
-CMAKE_PROJECT_NAME:STATIC=juggling_demo
+CMAKE_PROJECT_NAME:STATIC=juggling
 
 //Path to a program.
 CMAKE_RANLIB:FILEPATH=/usr/bin/ranlib
@@ -232,6 +232,15 @@ hello_drake_IS_TOP_LEVEL:STATIC=ON
 
 //Value Computed by CMake
 hello_drake_SOURCE_DIR:STATIC=/home/juggling
+
+//Value Computed by CMake
+juggling_BINARY_DIR:STATIC=/home/juggling/build
+
+//Value Computed by CMake
+juggling_IS_TOP_LEVEL:STATIC=ON
+
+//Value Computed by CMake
+juggling_SOURCE_DIR:STATIC=/home/juggling
 
 //Value Computed by CMake
 juggling_demo_BINARY_DIR:STATIC=/home/juggling/build
