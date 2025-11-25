@@ -29,6 +29,203 @@ using drake::multibody::UnitInertia;
 using drake::multibody::WeldJoint;
 using drake::systems::DiagramBuilder;
 
+//  Note: Run ./build/juggling_demo from the /home/juggling folder
+
+struct ArmWithCup {
+    const drake::multibody::RevoluteJoint<double>* shoulder;
+    const drake::multibody::RevoluteJoint<double>* elbow;
+    const drake::multibody::RigidBody<double>* cup_body;
+};
+
+ArmWithCup AddDoubleLinkArmWithCup(
+    MultibodyPlant<double>* mbp,
+    const std::string& name_prefix,
+    const RigidTransformd& X_WShoulder,  // pose of shoulder in world
+    double link_length,
+    double link_radius,
+    double link_mass,
+    double cup_radius,
+    double cup_height
+){
+    using drake::multibody::RevoluteJoint;
+    using drake::multibody::UnitInertia;
+    using drake::multibody::SpatialInertia;
+    using drake::math::RigidTransformd;
+    using drake::geometry::Cylinder;
+    using drake::geometry::Mesh;
+
+    /* Defining link and cup inertias */
+
+    SpatialInertia<double> link_inertia = SpatialInertia<double>::MakeFromCentralInertia(
+        link_mass,
+        Eigen::Vector3d::Zero(),
+        UnitInertia<double>::SolidCylinder(
+            link_radius,
+            link_length,
+            Eigen::Vector3d::UnitZ()
+        )
+    );
+
+    SpatialInertia<double> cup_inertia = SpatialInertia<double>::MakeFromCentralInertia(
+        0.2,
+        Eigen::Vector3d::Zero(),
+        UnitInertia<double>::SolidCylinder(
+            cup_radius,
+            cup_height,
+            Eigen::Vector3d::UnitZ()
+        )
+    );
+
+    /* Link 1 and shoulder joint */
+
+    auto& link1 = mbp->AddRigidBody(
+        name_prefix + "link1",
+        link_inertia
+    );
+
+    
+    auto& shoulder = mbp->AddJoint<RevoluteJoint>(
+        name_prefix + "shoulder",
+        mbp->world_body(),
+        X_WShoulder,
+        link1,
+        std::nullopt,
+        Eigen::Vector3d::UnitY()
+    );
+
+    mbp->RegisterVisualGeometry(
+        link1,
+        RigidTransformd(
+            Eigen::Vector3d(
+                0,
+                0,
+                link_length / 2.0
+            )
+        ),
+        drake::geometry::Cylinder(
+            link_radius, 
+            link_length
+        ),
+        name_prefix + "link1_visual",
+        Eigen::Vector4d(
+            0.1,
+            0.1,
+            1.0,
+            1.0
+        )
+    ); // blue
+
+    /* Link 2 and elbow joint */
+
+    auto& link2 = mbp->AddRigidBody(
+        name_prefix + "link2",
+        link_inertia
+    );
+
+
+    auto& elbow = mbp->AddJoint<RevoluteJoint>(
+        name_prefix + "elbow",
+        link1,
+        RigidTransformd(
+            Eigen::Vector3d(
+                0,
+                0,
+                link_length
+            )
+        ),
+        link2,
+        std::nullopt,
+        Eigen::Vector3d::UnitY()
+    );
+
+    mbp->RegisterVisualGeometry(
+        link2,
+        RigidTransformd(
+            Eigen::Vector3d(
+                0,
+                0,
+                link_length / 2.0
+            )
+        ),
+        drake::geometry::Cylinder(
+            link_radius,
+            link_length
+        ),
+        name_prefix + "link2_visual",
+        Eigen::Vector4d(
+            0.1,
+            1.0,
+            0.1,
+            1.0
+        )
+    ); // green
+
+    /* Cup rigid body */
+
+    auto& cup = mbp->AddRigidBody(
+        name_prefix + "cup",
+        cup_inertia
+    );
+
+    mbp->RegisterVisualGeometry(
+        cup,
+        RigidTransformd::Identity(),
+        drake::geometry::Mesh(
+            "cup_cone.obj",
+            1.0 // scale
+        ),
+        name_prefix + "cup_visual",
+        Eigen::Vector4d(
+            0.7,
+            0.7,
+            0.7,
+            1.0
+        )
+    );
+
+    mbp->AddJoint<WeldJoint>(
+        name_prefix + "weld_cup",
+        link2,
+        RigidTransformd(
+            Eigen::Vector3d(
+                0,
+                0,
+                link_length
+            )
+        ), // X_PF
+        cup,
+        RigidTransformd::Identity(), // X_BM
+        RigidTransformd::Identity() // X_FM
+    );
+
+    mbp->RegisterCollisionGeometry(
+        cup,
+        RigidTransformd(
+            Eigen::Vector3d(
+                0,
+                0,
+                cup_height / 2.0
+            )
+        ),
+        drake::geometry::Cylinder( // approximating as cylinder still
+            cup_radius,
+            cup_height
+        ),
+        name_prefix + "cup_collision",
+        CoulombFriction<double>(
+            0.9,
+            0.5
+        )
+    );
+
+    ArmWithCup result;
+    result.shoulder = &shoulder;
+    result.elbow = &elbow;
+    result.cup_body = &cup;
+    return result;
+    
+}
+
 int main() {
     DiagramBuilder<double> builder;
 
@@ -45,167 +242,43 @@ int main() {
 
     const double link_mass = 1.0;
 
-    SpatialInertia<double> link_inertia = SpatialInertia<double>::MakeFromCentralInertia(
-            link_mass,
-            Eigen::Vector3d::Zero(),
-            UnitInertia<double>::SolidCylinder(
-                link_radius,
-                link_length,
-                Eigen::Vector3d::UnitZ()
+    const double cup_radius = 0.18;
+
+    const double cup_height = 0.18;
+
+    ArmWithCup arm1 = AddDoubleLinkArmWithCup(
+        &mbp,
+        "arm1_",
+        RigidTransformd( // X_WShoulder (ground weld pos)
+            Eigen::Vector3d(
+                0.5,
+                0.0,
+                0.0
             )
-        );
-    
-    // Arm 1, consisting of two links
-
-    auto& link1 = mbp.AddRigidBody("link1", link_inertia);
-
-    auto& joint1 = mbp.AddJoint<RevoluteJoint>(
-        "shoulder",
-        mbp.world_body(), std::nullopt,
-        link1, std::nullopt,
-        Eigen::Vector3d::UnitY()
+        ),
+        link_length,
+        link_radius,
+        link_mass,
+        cup_radius,
+        cup_height
     );
 
-    mbp.RegisterVisualGeometry(
-        link1,
+    ArmWithCup arm2 = AddDoubleLinkArmWithCup(
+        &mbp,
+        "arm2_",
         RigidTransformd(
             Eigen::Vector3d(
-                0,
-                0,
-                link_length / 2.0
+                -0.5,
+                0.0,
+                0.0
             )
         ),
-        drake::geometry::Cylinder(
-            link_radius, 
-            link_length
-        ),
-        "link1_visual",
-        Eigen::Vector4d(
-            0.1,
-            0.1,
-            1.0,
-            1.0
-        )
-    ); // blue
-
-    auto& link2 = mbp.AddRigidBody(
-        "link2",
-        link_inertia
+        link_length,
+        link_radius,
+        link_mass,
+        cup_radius,
+        cup_height
     );
-
-    auto& joint2 = mbp.AddJoint<RevoluteJoint>(
-        "elbow",
-        link1, RigidTransformd(
-            Eigen::Vector3d(
-                0,
-                0,
-                link_length
-            )
-        ),
-        link2,
-        std::nullopt,
-        Eigen::Vector3d::UnitY()
-    );
-    
-    mbp.RegisterVisualGeometry(
-        link2,
-        RigidTransformd(
-            Eigen::Vector3d(
-                0,
-                0,
-                link_length / 2.0
-            )
-        ),
-        drake::geometry::Cylinder(
-            link_radius,
-            link_length
-        ),
-        "link2_visual",
-        Eigen::Vector4d(
-            0.1,
-            1.0,
-            0.1,
-            1.0
-        )
-    ); // green
-
-    // Cup
-
-    const double cup_radius = 0.08;
-
-    const double cup_height = 0.04;
-
-    SpatialInertia<double> cup_inertia = SpatialInertia<double>::MakeFromCentralInertia(
-        0.2,
-        Eigen::Vector3d::Zero(),
-        UnitInertia<double>::SolidCylinder(
-            cup_radius,
-            cup_height,
-            Eigen::Vector3d::UnitZ()
-        )
-    );
-
-    auto& cup = mbp.AddRigidBody(
-        "cup",
-        cup_inertia
-    );
-
-    mbp.RegisterVisualGeometry(
-        cup,
-        RigidTransformd::Identity(),
-        drake::geometry::Mesh(
-            "file:///home/juggling/meshes/cup_cone.stl",
-            1.0 // scale
-        ),
-        "cup_visual",
-        Eigen::Vector4d(
-            0.7,
-            0.7,
-            0.7,
-            1.0
-        )
-    );
-
-    // Welding joints, and collision geo
-
-    mbp.AddJoint<WeldJoint>(
-        "weld_cup",
-        link2,
-        RigidTransformd(
-            Eigen::Vector3d(
-                0,
-                0,
-                link_length
-            )
-        ), // X_PF
-        cup,
-        RigidTransformd::Identity(), // X_BM
-        RigidTransformd::Identity() // X_FM
-    );                                
-
-    // care about collision with cup, not links
-    mbp.RegisterCollisionGeometry(
-        cup,
-        RigidTransformd(
-            Eigen::Vector3d(
-                0,
-                0,
-                cup_height / 2.0
-            )
-        ),
-        drake::geometry::Cylinder( // approximating as cylinder still
-            cup_radius,
-            cup_height
-        ),
-        "cup_collision",
-        CoulombFriction<double>(
-            0.9,
-            0.5
-        )
-    );
-
-    
-    // Ball object to juggle
 
     const double ball_radius = 0.04;
 
@@ -219,7 +292,10 @@ int main() {
         )
     );
 
-    auto& ball = mbp.AddRigidBody("ball", ball_inertia);
+    auto& ball = mbp.AddRigidBody(
+        "ball",
+        ball_inertia
+    );
 
     mbp.RegisterCollisionGeometry(
         ball,
@@ -251,7 +327,7 @@ int main() {
 
     mbp.Finalize();
 
-    // Visualizing in meschat and building diagram
+    /* Visualizing in meschat and building diagram */
 
     auto meshcat = std::make_shared<Meshcat>();
 
@@ -272,14 +348,24 @@ int main() {
         &simulator.get_mutable_context()
     );
 
-    joint1.set_angle(
+    arm1.shoulder->set_angle(
         &plant_context,
         -0.5
     );
 
-    joint2.set_angle(
+    arm1.elbow->set_angle(
         &plant_context,
         1.0
+    );
+
+    arm2.shoulder->set_angle(
+        &plant_context,
+        0.3
+    );
+
+    arm2.elbow->set_angle(
+        &plant_context,
+        -0.7
     );
 
     mbp.SetFreeBodyPose(
@@ -311,11 +397,9 @@ int main() {
 
     simulator.set_target_realtime_rate(1.0);
 
-    simulator.AdvanceTo(5.0);
+    simulator.AdvanceTo(20.0);
 
     std::cout << "Simulation done. Press Enter to exit..." << std::endl;
-
-    std::cin.get();
 
     return 0;
 }
