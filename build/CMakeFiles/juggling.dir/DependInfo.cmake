@@ -10,6 +10,7 @@ set(CMAKE_DEPENDS_LANGUAGES
 set(CMAKE_DEPENDS_DEPENDENCY_FILES
   "/home/juggling/arm_with_cup.cc" "CMakeFiles/juggling.dir/arm_with_cup.cc.o" "gcc" "CMakeFiles/juggling.dir/arm_with_cup.cc.o.d"
   "/home/juggling/juggling.cc" "CMakeFiles/juggling.dir/juggling.cc.o" "gcc" "CMakeFiles/juggling.dir/juggling.cc.o.d"
+  "/home/juggling/kinematics.cc" "CMakeFiles/juggling.dir/kinematics.cc.o" "gcc" "CMakeFiles/juggling.dir/kinematics.cc.o.d"
   )
 
 # Targets to which this target links which contain Fortran sources.

@@ -3,6 +3,8 @@ file(REMOVE_RECURSE
   "CMakeFiles/juggling.dir/arm_with_cup.cc.o.d"
   "CMakeFiles/juggling.dir/juggling.cc.o"
   "CMakeFiles/juggling.dir/juggling.cc.o.d"
+  "CMakeFiles/juggling.dir/kinematics.cc.o"
+  "CMakeFiles/juggling.dir/kinematics.cc.o.d"
   "juggling"
   "juggling.pdb"
 )

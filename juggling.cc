@@ -43,7 +43,7 @@ int main() {
 
     MultibodyPlant<double>& mbp = plant;
 
-    const double link_length = 0.5;
+    const double link_length = 0.4;
 
     const double link_radius = 0.03;
 
@@ -53,12 +53,12 @@ int main() {
 
     const double cup_height = 0.18;
 
-    ArmWithCup arm1 = AddDoubleLinkArmWithCup(
+    ArmWithCup arm1 = AddTripleLinkArmWithCup(
         &mbp,
         "arm1_",
         RigidTransformd( // X_WShoulder (ground weld pos)
             Eigen::Vector3d(
-                0.5,
+                1.0,
                 0.0,
                 0.0
             )
@@ -70,12 +70,12 @@ int main() {
         cup_height
     );
 
-    ArmWithCup arm2 = AddDoubleLinkArmWithCup(
+    ArmWithCup arm2 = AddTripleLinkArmWithCup(
         &mbp,
         "arm2_",
         RigidTransformd(
             Eigen::Vector3d(
-                -0.5,
+                -1.0,
                 0.0,
                 0.0
             )
@@ -134,7 +134,7 @@ int main() {
 
     mbp.Finalize();
 
-    /* Visualizing in meschat and building diagram */
+    /* Visualizing in meschat */
 
     auto meshcat = std::make_shared<Meshcat>();
 
@@ -155,56 +155,95 @@ int main() {
         &simulator.get_mutable_context()
     );
 
-    arm1.shoulder->set_angle(
-        &plant_context,
-        -0.5
+    /* Simulation, with inverse kinematics for positioning */
+    
+    Eigen::Vector3d Center1 = Eigen::Vector3d(
+        1.0,
+        0.0,
+        0.4
     );
 
-    arm1.elbow->set_angle(
-        &plant_context,
-        1.0
+    Eigen::Vector3d Center2 = Eigen::Vector3d(
+        -1.0,
+        0.0,
+        0.4
     );
 
-    arm2.shoulder->set_angle(
-        &plant_context,
-        0.3
-    );
+    double radius = 0.10;
 
-    arm2.elbow->set_angle(
-        &plant_context,
-        -0.7
-    );
-
-    mbp.SetFreeBodyPose(
-        &plant_context,
-        ball,
-        RigidTransformd(
-            Eigen::Vector3d(
-                0.6,
-                0.0,
-                0.9
-            )
-        )
-    );
-
-    mbp.SetFreeBodySpatialVelocity(
-        &plant_context,
-        ball,
-        SpatialVelocity<double>(
-            Eigen::Vector3d::Zero(), // angular
-            Eigen::Vector3d( // translational (m/s)
-                -1.0,
-                0.0,
-                3.0
-            )
-        )
-    );
+    double t_final = 10.0;
+    double dt = 0.05;
 
     simulator.Initialize();
 
-    simulator.set_target_realtime_rate(1.0);
+    for (double t = 0; t < t_final; t += dt) {
 
-    simulator.AdvanceTo(20.0);
+        Eigen::Vector3d p1 = CupPos1(
+            t,
+            Center1,
+            radius
+        );
+
+        Eigen::Vector3d p2 = CupPos2(
+            t,
+            Center2,
+            radius
+        );
+
+        Eigen::VectorXd q_sol_1 = SolveIKForCup(
+            mbp,
+            &plant_context,
+            arm1.cup_body,
+            p1
+        );
+
+        Eigen::VectorXd q_sol_2 = SolveIKForCup(
+            mbp,
+            &plant_context,
+            arm2.cup_body,
+            p2
+        );
+
+        if (q_sol_1.size() != mbp.num_positions() ||
+            q_sol_2.size() != mbp.num_positions()) {
+            std::cerr << "Skipping t=" << t << " because IK failed.\n";
+            simulator.AdvanceTo(t);
+            continue;
+        }
+
+        arm1.shoulder->set_angle(
+            &plant_context,
+            q_sol_1[arm1.shoulder->position_start()]
+        );
+
+        arm1.elbow->set_angle(
+            &plant_context,
+            q_sol_1[arm1.elbow->position_start()]
+        );
+
+        arm1.wrist->set_angle(
+            &plant_context, 
+            q_sol_1[arm1.wrist->position_start()]
+        );
+
+        arm2.shoulder->set_angle(
+            &plant_context,
+            q_sol_2[arm2.shoulder->position_start()]
+        );
+
+        arm2.elbow->set_angle(
+            &plant_context,
+            q_sol_2[arm2.elbow->position_start()]
+        );
+
+        arm2.wrist->set_angle(
+            &plant_context, 
+            q_sol_2[arm2.wrist->position_start()]
+        );
+
+        simulator.AdvanceTo(t);
+
+    }
 
     std::cout << "Simulation done. Press Enter to exit..." << std::endl;
 

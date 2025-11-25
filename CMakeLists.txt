@@ -3,5 +3,5 @@ project(juggling)
 
 find_package(drake CONFIG REQUIRED)
 
-add_executable(juggling juggling.cc arm_with_cup.cc)
+add_executable(juggling juggling.cc kinematics.cc arm_with_cup.cc)
 target_link_libraries(juggling drake::drake)

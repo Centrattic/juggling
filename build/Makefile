@@ -177,6 +177,30 @@ juggling.cc.s:
 	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/juggling.cc.s
 .PHONY : juggling.cc.s
 
+kinematics.o: kinematics.cc.o
+.PHONY : kinematics.o
+
+# target to build an object file
+kinematics.cc.o:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/kinematics.cc.o
+.PHONY : kinematics.cc.o
+
+kinematics.i: kinematics.cc.i
+.PHONY : kinematics.i
+
+# target to preprocess a source file
+kinematics.cc.i:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/kinematics.cc.i
+.PHONY : kinematics.cc.i
+
+kinematics.s: kinematics.cc.s
+.PHONY : kinematics.s
+
+# target to generate assembly for a file
+kinematics.cc.s:
+	$(MAKE) $(MAKESILENT) -f CMakeFiles/juggling.dir/build.make CMakeFiles/juggling.dir/kinematics.cc.s
+.PHONY : kinematics.cc.s
+
 # Help Target
 help:
 	@echo "The following are some of the valid targets for this Makefile:"
@@ -192,6 +216,9 @@ help:
 	@echo "... juggling.o"
 	@echo "... juggling.i"
 	@echo "... juggling.s"
+	@echo "... kinematics.o"
+	@echo "... kinematics.i"
+	@echo "... kinematics.s"
 .PHONY : help
 
 
