@@ -171,10 +171,13 @@ int main() {
 
     double radius = 0.10;
 
-    double t_final = 10.0;
+    double t_final = 20.0;
+
     double dt = 0.05;
 
     simulator.Initialize();
+
+    simulator.set_target_realtime_rate(1.0);
 
     for (double t = 0; t < t_final; t += dt) {
 
@@ -190,56 +193,58 @@ int main() {
             radius
         );
 
-        Eigen::VectorXd q_sol_1 = SolveIKForCup(
-            mbp,
-            &plant_context,
-            arm1.cup_body,
-            p1
+        ArmIKSolution ik1 = SolveAnalyticIK(
+            p1.x(),
+            p1.y(),
+            p1.z(),
+            link_length,
+            link_length,
+            link_length
         );
 
-        Eigen::VectorXd q_sol_2 = SolveIKForCup(
-            mbp,
-            &plant_context,
-            arm2.cup_body,
-            p2
-        );
+        if (ik1.success) {
 
-        if (q_sol_1.size() != mbp.num_positions() ||
-            q_sol_2.size() != mbp.num_positions()) {
-            std::cerr << "Skipping t=" << t << " because IK failed.\n";
-            simulator.AdvanceTo(t);
-            continue;
+            arm1.shoulder->set_angle(
+                &plant_context, 
+                ik1.shoulder
+            );
+
+            arm1.elbow->set_angle(
+                &plant_context, 
+                ik1.elbow
+            );
+
+            arm1.wrist->set_angle(
+                &plant_context,
+                ik1.wrist
+            );
         }
 
-        arm1.shoulder->set_angle(
-            &plant_context,
-            q_sol_1[arm1.shoulder->position_start()]
+        ArmIKSolution ik2 = SolveAnalyticIK(
+            p2.x(),
+            p2.y(),
+            p2.z(),
+            link_length,
+            link_length,
+            link_length
         );
 
-        arm1.elbow->set_angle(
-            &plant_context,
-            q_sol_1[arm1.elbow->position_start()]
-        );
+        if (ik2.success) {
 
-        arm1.wrist->set_angle(
-            &plant_context, 
-            q_sol_1[arm1.wrist->position_start()]
-        );
+            arm2.shoulder->set_angle(
+                &plant_context,
+                ik2.shoulder);
 
-        arm2.shoulder->set_angle(
-            &plant_context,
-            q_sol_2[arm2.shoulder->position_start()]
-        );
+            arm2.elbow->set_angle(
+                &plant_context,
+                ik2.elbow
+            );
 
-        arm2.elbow->set_angle(
-            &plant_context,
-            q_sol_2[arm2.elbow->position_start()]
-        );
-
-        arm2.wrist->set_angle(
-            &plant_context, 
-            q_sol_2[arm2.wrist->position_start()]
-        );
+            arm2.wrist->set_angle(
+                &plant_context,
+                ik2.wrist
+            );
+        }
 
         simulator.AdvanceTo(t);
 

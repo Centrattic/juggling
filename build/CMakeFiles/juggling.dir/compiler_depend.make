@@ -1730,6 +1730,7 @@ CMakeFiles/juggling.dir/juggling.cc.o: /home/juggling/juggling.cc \
   /usr/lib/gcc/x86_64-linux-gnu/13/include/xmmintrin.h
 
 CMakeFiles/juggling.dir/kinematics.cc.o: /home/juggling/kinematics.cc \
+  /home/juggling/main.h \
   /opt/drake/include/drake/common/autodiff.h \
   /opt/drake/include/drake/common/autodiff_overloads.h \
   /opt/drake/include/drake/common/autodiffxd.h \
@@ -1916,6 +1917,8 @@ CMakeFiles/juggling.dir/kinematics.cc.o: /home/juggling/kinematics.cc \
   /opt/drake/include/drake/multibody/tree/parameter_conversion.h \
   /opt/drake/include/drake/multibody/tree/position_kinematics_cache.h \
   /opt/drake/include/drake/multibody/tree/quaternion_floating_mobilizer.h \
+  /opt/drake/include/drake/multibody/tree/revolute_joint.h \
+  /opt/drake/include/drake/multibody/tree/revolute_mobilizer.h \
   /opt/drake/include/drake/multibody/tree/rigid_body.h \
   /opt/drake/include/drake/multibody/tree/rotational_inertia.h \
   /opt/drake/include/drake/multibody/tree/scoped_name.h \

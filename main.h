@@ -44,3 +44,20 @@ Eigen::Vector3d CupPos2(
     Eigen::Vector3d Center2,
     double radius
 );
+
+struct ArmIKSolution {
+    bool success;
+    double yaw;
+    double shoulder;
+    double elbow;
+    double wrist;
+};
+
+ArmIKSolution SolveAnalyticIK(
+    double x,
+    double y,
+    double z,
+    double L1,
+    double L2,
+    double L3
+);

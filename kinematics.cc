@@ -1,3 +1,4 @@
+#include "main.h"
 #include <Eigen/Core>
 #include <cmath>
 #include <iostream>
@@ -21,8 +22,8 @@ Eigen::Vector3d CupPos1(
 ) {
 
     return Center1 + Eigen::Vector3d(
-        radius * cos(t),
-        radius * sin(t),
+        radius * cos(0.02*t),
+        radius * sin(0.02*t),
         0.0 // traj is in x-y plane
     );
         
@@ -35,8 +36,8 @@ Eigen::Vector3d CupPos2(
 ) {
     
     return Center2 + Eigen::Vector3d(
-        radius * cos(t),
-        radius * sin(t),
+        radius * cos(0.02*t),
+        radius * sin(0.02*t),
         0.0
     );
 
@@ -103,3 +104,91 @@ Eigen::VectorXd SolveIKForCup(
     );
 
 }
+
+ArmIKSolution SolveAnalyticIK(
+    double x,
+    double y,
+    double z,
+    double L1,
+    double L2,
+    double L3
+) {
+    ArmIKSolution sol;
+
+    double yaw = atan2(
+        y, 
+        x
+    );
+
+    // planar yaw matching
+    double r = sqrt(
+        x*x + y*y
+    );
+
+    double px = r;
+
+    double pz = z;
+
+    double a1 = L1;
+
+    double a2 = L2;
+
+    double a3 = L3;
+
+    double L = a2 + a3;
+
+    // planar distance
+    double D = sqrt(
+        px*px + pz*pz
+    );
+
+    if (D > a1 + L) {
+        sol.success = false;
+        return sol; // unreachable
+    }
+
+    // planar IK
+    double c2 = (px*px + pz*pz - a1*a1 - L*L) / (2 * a1 * L);
+
+    if (c2 < -1 || c2 > 1) {
+        sol.success = false;
+        return sol;
+    }
+
+    double s2 = sqrt(
+        1 - c2*c2
+    );
+
+    double theta2 = atan2(
+        s2, 
+        c2
+    ); // elbow down
+
+    double k1 = a1 + L * c2;
+
+    double k2 = L * s2;
+
+    double theta1 = atan2(
+        pz, 
+        px
+    ) - atan2(
+        k2, 
+        k1
+    );
+
+    // wrist to keep end upright
+    double wrist = -(theta1 + theta2);
+
+    sol.success = true;
+
+    sol.yaw = yaw;
+
+    sol.shoulder = theta1;
+    
+    sol.elbow = theta2;
+    
+    sol.wrist = wrist;
+
+    return sol;
+}
+
