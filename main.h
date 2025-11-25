@@ -18,7 +18,8 @@ struct ArmWithCup {
 ArmWithCup AddTripleLinkArmWithCup(
     drake::multibody::MultibodyPlant<double>* mbp,
     const std::string& name_prefix,
-    const drake::math::RigidTransformd& X_WShoulder,
+    const drake::multibody::Body<double>& parent_body,
+    const drake::math::RigidTransformd& X_PShoulder,
     double link_length,
     double link_radius,
     double link_mass,

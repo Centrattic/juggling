@@ -3,6 +3,9 @@
 #include <Eigen/Core>
 
 #include <iostream>
+#include <thread>
+#include <chrono>
+
 #include <drake/geometry/meshcat.h>
 #include <drake/geometry/meshcat_visualizer.h>
 #include <drake/geometry/scene_graph.h>
@@ -43,7 +46,59 @@ int main() {
 
     MultibodyPlant<double>& mbp = plant;
 
-    const double link_length = 0.4;
+    const double torso_height = 0.4;
+
+    const double torso_radius = 0.03;
+
+    const double torso_mass = 5.0;
+
+    SpatialInertia<double> torso_inertia = SpatialInertia<double>::MakeFromCentralInertia(
+        torso_mass,
+        Eigen::Vector3d::Zero(),
+        UnitInertia<double>::SolidCylinder(
+            torso_radius,
+            torso_height,
+            Eigen::Vector3d::UnitZ()
+        )
+    );
+
+    auto &torso = mbp.AddRigidBody(
+        "torso",
+        torso_inertia
+    );
+
+    mbp.RegisterVisualGeometry(
+        torso,
+        RigidTransformd(
+            Eigen::Vector3d(
+                0,
+                0,
+                torso_height / 2.0
+            )
+        ),
+        drake::geometry::Cylinder(
+            torso_radius, 
+            torso_height
+        ),
+        "torso_visual",
+        Eigen::Vector4d(
+            0.6,
+            0.6,
+            0.9,
+            1.0
+        )
+    );
+
+    auto& base_yaw = mbp.AddJoint<RevoluteJoint>(
+        "base_yaw",
+        mbp.world_body(),
+        RigidTransformd::Identity(),
+        torso,
+        std::nullopt,
+        Eigen::Vector3d::UnitZ()
+    );
+
+    const double link_length = 0.3;
 
     const double link_radius = 0.03;
 
@@ -56,11 +111,12 @@ int main() {
     ArmWithCup arm1 = AddTripleLinkArmWithCup(
         &mbp,
         "arm1_",
+        torso,
         RigidTransformd( // X_WShoulder (ground weld pos)
             Eigen::Vector3d(
-                1.0,
+                torso_radius,
                 0.0,
-                0.0
+                torso_height
             )
         ),
         link_length,
@@ -73,11 +129,12 @@ int main() {
     ArmWithCup arm2 = AddTripleLinkArmWithCup(
         &mbp,
         "arm2_",
+        torso,
         RigidTransformd(
             Eigen::Vector3d(
-                -1.0,
+                -torso_radius,
                 0.0,
-                0.0
+                torso_height
             )
         ),
         link_length,
@@ -177,7 +234,9 @@ int main() {
 
     simulator.Initialize();
 
-    simulator.set_target_realtime_rate(1.0);
+    simulator.set_target_realtime_rate(
+        1.0
+    );
 
     for (double t = 0; t < t_final; t += dt) {
 
@@ -247,6 +306,8 @@ int main() {
         }
 
         simulator.AdvanceTo(t);
+
+        std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     }
 

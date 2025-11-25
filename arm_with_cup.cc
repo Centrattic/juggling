@@ -20,7 +20,8 @@ using drake::multibody::CoulombFriction;
 ArmWithCup AddTripleLinkArmWithCup(
     MultibodyPlant<double>* mbp,
     const std::string& name_prefix,
-    const RigidTransformd& X_WShoulder,  // pose of shoulder in world
+    const drake::multibody::Body<double>& parent_body,
+    const RigidTransformd& X_PShoulder,  // pose of shoulder in world
     double link_length,
     double link_radius,
     double link_mass,
@@ -60,11 +61,11 @@ ArmWithCup AddTripleLinkArmWithCup(
     
     auto& shoulder = mbp->AddJoint<RevoluteJoint>(
         name_prefix + "shoulder",
-        mbp->world_body(),
-        X_WShoulder,
+        parent_body, // rotating juggler, not attached to world
+        X_PShoulder,
         link1,
         std::nullopt,
-        Eigen::Vector3d::UnitZ()
+        Eigen::Vector3d::UnitY()
     );
 
     mbp->RegisterVisualGeometry(
