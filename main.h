@@ -16,6 +16,7 @@ struct JointTarget {
 struct ArmWithCup {
     const drake::multibody::RevoluteJoint<double>* shoulder;
     const drake::multibody::RevoluteJoint<double>* elbow;
+    const drake::multibody::RevoluteJoint<double>* wrist;
     const drake::multibody::RigidBody<double>* cup_body;
 };
 
@@ -70,6 +71,13 @@ struct TwoLinkIKSolution {
     double elbow{};
 };
 
+struct ThreeLinkIKSolution {
+    bool success{};
+    double shoulder{};
+    double elbow{};
+    double wrist{};
+};
+
 TwoLinkIKSolution Solve2LinkIK(
     const Eigen::Vector3d& p_W,
     double theta_torso,
@@ -77,3 +85,23 @@ TwoLinkIKSolution Solve2LinkIK(
     double L1,
     double L2
 );
+
+TwoLinkIKSolution Solve2LinkIKWithOrientation(
+    const Eigen::Vector3d& cup_pos_W,
+    const Eigen::Vector3d& cup_direction_W, // Desired cup orientation
+    double theta_torso,
+    const Eigen::Vector3d& shoulder_T,
+    double L1,
+    double L2
+);
+
+ThreeLinkIKSolution Solve3LinkIKWithOrientation(
+    const Eigen::Vector3d& cup_pos_W,
+    const Eigen::Vector3d& cup_direction_W, // Desired cup orientation
+    double theta_torso,
+    const Eigen::Vector3d& shoulder_T,
+    double L1,
+    double L2,
+    double L3
+);
+

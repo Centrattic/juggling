@@ -5,6 +5,8 @@
 #include <drake/multibody/tree/weld_joint.h>
 #include <drake/multibody/tree/unit_inertia.h>
 #include <drake/multibody/plant/coulomb_friction.h>
+#include <drake/math/rotation_matrix.h>
+#include <cmath>
 #include <optional>
 
 using drake::math::RigidTransformd;
@@ -147,6 +149,56 @@ ArmWithCup AddTripleLinkArmWithCup(
         )
     ); // green
 
+    /* Link 3 and wrist joint */
+
+    auto& link3 = mbp->AddRigidBody(
+        name_prefix + "link3",
+        link_inertia
+    );
+
+    auto& wrist = mbp->AddJoint<RevoluteJoint>(
+        name_prefix + "wrist",
+        link2,
+        RigidTransformd(
+            Eigen::Vector3d(
+                0,
+                0,
+                link_length
+            )
+        ),
+        link3,
+        std::nullopt,
+        Eigen::Vector3d::UnitY()
+    );
+
+    
+    mbp->AddJointActuator(
+        name_prefix + "wrist_act",
+        wrist
+    );
+
+    mbp->RegisterVisualGeometry(
+        link3,
+        RigidTransformd(
+            Eigen::Vector3d(
+                0,
+                0,
+                link_length / 2.0
+            )
+        ),
+        drake::geometry::Cylinder(
+            link_radius,
+            link_length
+        ),
+        name_prefix + "link3_visual",
+        Eigen::Vector4d(
+            1.0,
+            0.1,
+            0.1,
+            1.0
+        )
+    ); // red
+
     /* Cup rigid body */
 
     auto& cup = mbp->AddRigidBody(
@@ -172,7 +224,7 @@ ArmWithCup AddTripleLinkArmWithCup(
 
     mbp->AddJoint<WeldJoint>(
         name_prefix + "weld_cup",
-        link2,
+        link3,
         std::nullopt,               // no separate frame on parent
         cup,
         std::nullopt,               // no separate frame on child
@@ -206,9 +258,15 @@ ArmWithCup AddTripleLinkArmWithCup(
     );
 
     ArmWithCup result;
+
     result.shoulder = &shoulder;
+
     result.elbow = &elbow;
+
+    result.wrist = &wrist;
+
     result.cup_body = &cup;
+    
     return result;
     
 }
