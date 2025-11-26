@@ -98,7 +98,7 @@ int main() {
         Eigen::Vector3d::UnitZ()
     );
 
-    const double link_length = 0.3;
+    const double link_length = 0.5;
 
     const double link_radius = 0.03;
 
@@ -189,9 +189,9 @@ int main() {
         )
     );
 
-    mbp.mutable_gravity_field().set_gravity_vector(
-        Eigen::Vector3d::Zero()
-    );
+    // mbp.mutable_gravity_field().set_gravity_vector(
+    //     Eigen::Vector3d::Zero()
+    // );
 
     mbp.Finalize();
 
@@ -230,11 +230,30 @@ int main() {
         0.6
     );
 
+    Eigen::Vector3d g = Eigen::Vector3d(
+        0.0,
+        0.0,
+        -9.81
+    );
+    
+    // ball release consts
+    double t_release = 2.0;
+    
+    double t_catch = 3.0;
+
+    bool ball_released = false;
+
+    Eigen::Vector3d p_release_W;
+
+    Eigen::Vector3d v0_W;
+
     double radius = 0.10;
 
     double t_final = 20.0;
 
     double dt = 0.05;
+
+    double torso_w = 4.0;
 
     simulator.Initialize();
 
@@ -243,6 +262,12 @@ int main() {
     );
 
     for (double t = 0; t < t_final; t += dt) {
+
+        // spin torso
+        base_yaw.set_angle(
+            &plant_context,
+            torso_w*t
+        );
 
         Eigen::Vector3d p1 = CupPos1(
             t,
@@ -255,8 +280,6 @@ int main() {
             Center2,
             radius
         );
-
-        double torso_w = 4.0;
 
         TwoLinkIKSolution ik1 = Solve2LinkIK(
             p1,
@@ -312,13 +335,66 @@ int main() {
             );
 
         } else {
-            std::cout << "IK failed" << std::endl;
+            std::cout << "IK 2 failed" << std::endl;
         }
 
-        base_yaw.set_angle(
-            &plant_context,
-            torso_w*t
-        );
+        // plan and execute a single throw
+        if (!ball_released && t >= t_release) {
+
+            auto X_WC = mbp.EvalBodyPoseInWorld(
+                plant_context,
+                *arm1.cup_body
+            );
+
+            p_release_W = X_WC.translation();
+
+            Eigen::Vector3d p_catch_W = CupPos2( // following circular traj
+                t_catch,
+                Center2,
+                radius
+            );
+
+            v0_W = ComputeThrowVelocity(
+                p_release_W,
+                p_catch_W,
+                t_release,
+                t_catch,
+                g
+            );
+
+            ball_released = true;
+        }
+
+        if (ball_released) {
+            
+            Eigen::Vector3d p_ball = ObjectPosition(
+                p_release_W,
+                v0_W,
+                t,
+                t_release,
+                g
+            );
+
+            mbp.SetFreeBodyPose(
+                &plant_context,
+                ball,
+                RigidTransformd(
+                    p_ball
+                )
+            );
+        } else { // prior to release
+
+            auto X_WC = mbp.EvalBodyPoseInWorld(
+                plant_context,
+                *arm1.cup_body
+            );
+
+            mbp.SetFreeBodyPose(
+                &plant_context,
+                ball,
+                X_WC
+            );
+        }
 
         simulator.AdvanceTo(t);
 

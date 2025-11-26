@@ -26,23 +26,37 @@ ArmWithCup AddTripleLinkArmWithCup(
     double cup_height
 );
 
-Eigen::VectorXd SolveIKForCup(
-    const drake::multibody::MultibodyPlant<double> &plant,
-    drake::systems::Context<double>* plant_context,
-    const drake::multibody::RigidBody<double>* cup_body,
-    const Eigen::Vector3d& p_Wcup_target
+Eigen::Vector3d ObjectPosition(
+    const Eigen::Vector3d& p_r,
+    const Eigen::Vector3d& v0,
+    double t,
+    double t_r,
+    const Eigen::Vector3d& g
 );
 
-Eigen::Vector3d CupPos1(
+Eigen::Vector3d ObjectVelocity(
+    const Eigen::Vector3d& v0,
     double t,
-    Eigen::Vector3d Center1,
-    double radius
+    double t_r,
+    const Eigen::Vector3d& g
 );
 
-Eigen::Vector3d CupPos2(
+Eigen::Vector3d ComputeThrowVelocity(
+    const Eigen::Vector3d& p_r,
+    const Eigen::Vector3d& p_c,
+    double t_r,
+    double t_c,
+    const Eigen::Vector3d& g
+);
+
+Eigen::Vector3d CupTorsoTarget(
     double t,
-    Eigen::Vector3d Center2,
-    double radius
+    const Eigen::Vector3d& shoulder_T,
+    double link_length,
+    double h_mid_offset,
+    double h_amp,
+    double period,
+    double arm_phase
 );
 
 struct TwoLinkIKSolution {
@@ -55,21 +69,6 @@ TwoLinkIKSolution Solve2LinkIK(
     const Eigen::Vector3d& p_W,
     double theta_torso,
     const Eigen::Vector3d& shoulder_T,
-    double L1,
-    double L2
-);
-
-struct JugglerIKSolution {
-    bool success;
-    double torso_yaw;
-    double shoulder;
-    double elbow;
-};
-
-JugglerIKSolution SolveJugglerIK(
-    const Eigen::Vector3d& p_W,          // target cup position in world
-    double theta_torso,                  // current torso yaw
-    const Eigen::Vector3d& shoulder_T,   // shoulder position in torso frame
     double L1,
     double L2
 );
