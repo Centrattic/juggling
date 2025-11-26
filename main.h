@@ -11,7 +11,6 @@
 struct ArmWithCup {
     const drake::multibody::RevoluteJoint<double>* shoulder;
     const drake::multibody::RevoluteJoint<double>* elbow;
-    const drake::multibody::RevoluteJoint<double>* wrist;
     const drake::multibody::RigidBody<double>* cup_body;
 };
 
@@ -46,19 +45,31 @@ Eigen::Vector3d CupPos2(
     double radius
 );
 
-struct ArmIKSolution {
-    bool success;
-    double yaw;
-    double shoulder;
-    double elbow;
-    double wrist;
+struct TwoLinkIKSolution {
+    bool success{};
+    double shoulder{};
+    double elbow{};
 };
 
-ArmIKSolution SolveAnalyticIK(
-    double x,
-    double y,
-    double z,
+TwoLinkIKSolution Solve2LinkIK(
+    const Eigen::Vector3d& p_W,
+    double theta_torso,
+    const Eigen::Vector3d& shoulder_T,
     double L1,
-    double L2,
-    double L3
+    double L2
+);
+
+struct JugglerIKSolution {
+    bool success;
+    double torso_yaw;
+    double shoulder;
+    double elbow;
+};
+
+JugglerIKSolution SolveJugglerIK(
+    const Eigen::Vector3d& p_W,          // target cup position in world
+    double theta_torso,                  // current torso yaw
+    const Eigen::Vector3d& shoulder_T,   // shoulder position in torso frame
+    double L1,
+    double L2
 );

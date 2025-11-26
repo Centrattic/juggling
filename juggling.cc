@@ -189,6 +189,10 @@ int main() {
         )
     );
 
+    mbp.mutable_gravity_field().set_gravity_vector(
+        Eigen::Vector3d::Zero()
+    );
+
     mbp.Finalize();
 
     /* Visualizing in meschat */
@@ -215,15 +219,15 @@ int main() {
     /* Simulation, with inverse kinematics for positioning */
     
     Eigen::Vector3d Center1 = Eigen::Vector3d(
-        1.0,
+        0,
         0.0,
-        0.4
+        0.3
     );
 
     Eigen::Vector3d Center2 = Eigen::Vector3d(
-        -1.0,
+        0,
         0.0,
-        0.4
+        0.6
     );
 
     double radius = 0.10;
@@ -252,11 +256,16 @@ int main() {
             radius
         );
 
-        ArmIKSolution ik1 = SolveAnalyticIK(
-            p1.x(),
-            p1.y(),
-            p1.z(),
-            link_length,
+        double torso_w = 4.0;
+
+        TwoLinkIKSolution ik1 = Solve2LinkIK(
+            p1,
+            torso_w,
+            Eigen::Vector3d(
+                torso_radius,
+                0.0,
+                torso_height
+            ),
             link_length,
             link_length
         );
@@ -273,17 +282,20 @@ int main() {
                 ik1.elbow
             );
 
-            arm1.wrist->set_angle(
-                &plant_context,
-                ik1.wrist
-            );
+        } else {
+
+            std::cout << "IK 1 failed" << std::endl;
+
         }
 
-        ArmIKSolution ik2 = SolveAnalyticIK(
-            p2.x(),
-            p2.y(),
-            p2.z(),
-            link_length,
+        TwoLinkIKSolution ik2 = Solve2LinkIK(
+            p2,
+            torso_w,
+            Eigen::Vector3d(
+                -torso_radius,
+                0.0,
+                torso_height
+            ),
             link_length,
             link_length
         );
@@ -299,11 +311,14 @@ int main() {
                 ik2.elbow
             );
 
-            arm2.wrist->set_angle(
-                &plant_context,
-                ik2.wrist
-            );
+        } else {
+            std::cout << "IK failed" << std::endl;
         }
+
+        base_yaw.set_angle(
+            &plant_context,
+            torso_w*t
+        );
 
         simulator.AdvanceTo(t);
 

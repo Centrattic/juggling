@@ -43,152 +43,152 @@ Eigen::Vector3d CupPos2(
 
 }
 
-// To be honest, since it's only 3 links, I don't even need a solver.
-// Could just calculate equations directly for the position, but should also be easy to solve
-// Might be much slower though, we'll see
-Eigen::VectorXd SolveIKForCup(
-    const MultibodyPlant<double> &plant,
-    drake::systems::Context<double>* plant_context,
-    const RigidBody<double>* cup_body,
-    const Eigen::Vector3d& p_Wcup_target
-) {
-
-    using drake::math::RigidTransformd;
-    using drake::math::RotationMatrixd;
-    using drake::multibody::InverseKinematics;
-    using drake::solvers::Solve;
-
-    InverseKinematics ik(
-        plant, 
-        plant_context
-    );
-
-    double tol = 0.02;
-
-    ik.AddPositionConstraint(
-        // plant.GetFrameByName(
-        //     cup_body->name()
-        // ),
-        cup_body->body_frame(),
-        Eigen::Vector3d::Zero(),
-        plant.world_frame(),
-        p_Wcup_target - Eigen::Vector3d(tol, tol, tol),
-        p_Wcup_target + Eigen::Vector3d(tol, tol, tol)
-    );
-
-    Eigen::Matrix3d R_WCup = Eigen::Matrix3d::Identity();
-
-    ik.AddOrientationConstraint(
-        plant.GetFrameByName(
-            cup_body->name()
-        ),
-        drake::math::RotationMatrixd::Identity(),
-        plant.world_frame(),
-        drake::math::RotationMatrixd(R_WCup),
-        0.05
-    );
-
-    auto& prog = ik.prog();
-    
-    auto result = Solve(
-        prog
-    );
-
-    if (!result.is_success()) {
-        std::cerr << "IK failed!\n";
-        return Eigen::VectorXd();
-    }
-
-    return result.GetSolution(
-        ik.q()
-    );
-
-}
-
-ArmIKSolution SolveAnalyticIK(
-    double x,
-    double y,
-    double z,
+TwoLinkIKSolution Solve2LinkIK(
+    const Eigen::Vector3d& p_W,
+    double theta_torso,
+    const Eigen::Vector3d& shoulder_T,
     double L1,
-    double L2,
-    double L3
+    double L2
 ) {
-    ArmIKSolution sol;
+    TwoLinkIKSolution sol;
 
-    double yaw = atan2(
-        y, 
-        x
+    Eigen::AngleAxisd Rz_neg(
+        -theta_torso,
+        Eigen::Vector3d::UnitZ()
     );
 
-    // planar yaw matching
-    double r = sqrt(
-        x*x + y*y
+    Eigen::Vector3d p_T = Rz_neg * p_W;
+
+    Eigen::Vector3d p_rel = p_T - shoulder_T;
+
+    double px_plane = std::sqrt(
+        p_rel.x()*p_rel.x() + p_rel.y()*p_rel.y()
     );
 
-    double px = r;
+    double pz_plane = p_rel.z();
 
-    double pz = z;
+    double D2 = px_plane*px_plane + pz_plane*pz_plane;
 
-    double a1 = L1;
-
-    double a2 = L2;
-
-    double a3 = L3;
-
-    double L = a2 + a3;
-
-    // planar distance
-    double D = sqrt(
-        px*px + pz*pz
+    double D = std::sqrt(
+        D2
     );
 
-    if (D > a1 + L) {
+    if (D > L1 + L2) {
+
         sol.success = false;
         return sol; // unreachable
+
     }
 
-    // planar IK
-    double c2 = (px*px + pz*pz - a1*a1 - L*L) / (2 * a1 * L);
+    double c2 = (D2 - L1*L1 - L2*L2) / (2.0 * L1 * L2);
 
-    if (c2 < -1 || c2 > 1) {
+    if (c2 < -1.0 || c2 > 1.0) {
+
         sol.success = false;
         return sol;
+
     }
 
-    double s2 = sqrt(
-        1 - c2*c2
+    double s2 = std::sqrt(
+        1.0 - c2*c2
     );
-
-    double theta2 = atan2(
+    
+    double elbow = std::atan2(
         s2, 
         c2
-    ); // elbow down
+    );
 
-    double k1 = a1 + L * c2;
+    double k1 = L1 + L2 * c2;
 
-    double k2 = L * s2;
+    double k2 = L2 * s2;
 
-    double theta1 = atan2(
-        pz, 
-        px
-    ) - atan2(
-        k2, 
+    double shoulder = std::atan2(
+        pz_plane,
+        px_plane
+    ) - std::atan2(
+        k2,
         k1
     );
 
-    // wrist to keep end upright
-    double wrist = -(theta1 + theta2);
-
     sol.success = true;
 
-    sol.yaw = yaw;
+    sol.shoulder = shoulder;
 
-    sol.shoulder = theta1;
-    
-    sol.elbow = theta2;
-    
-    sol.wrist = wrist;
+    sol.elbow = elbow;
 
     return sol;
 }
 
+JugglerIKSolution SolveJugglerIK(
+    const Eigen::Vector3d& p_W,
+    double theta_torso,
+    const Eigen::Vector3d& shoulder_T,
+    double L1,
+    double L2
+) {
+    JugglerIKSolution sol;
+
+    sol.success = false;
+
+    Eigen::AngleAxisd Rz_neg(
+        theta_torso * -1.0,
+        Eigen::Vector3d::UnitZ()
+    );
+
+    Eigen::Vector3d p_T = Rz_neg * p_W;
+
+    Eigen::Vector3d p_rel = p_T - shoulder_T;
+
+    double px = p_rel.x();
+
+    double pz = p_rel.z();
+
+    double D2 = px*px + pz*pz;
+
+    double D  = std::sqrt(
+        D2
+    );
+
+    if (D > L1 + L2) {
+
+        return sol; // unreachable
+    }
+
+    double c2 = (D2 - L1*L1 - L2*L2) / (2.0 * L1 * L2);
+
+    if (c2 < -1.0 || c2 > 1.0) {
+
+        return sol;
+    }
+
+    double s2 = std::sqrt(
+        1.0 - c2*c2
+    );
+
+    double elbow = std::atan2(
+        s2,
+        c2
+    );
+
+    double k1 = L1 + L2 * c2;
+
+    double k2 = L2 * s2;
+
+    double shoulder = std::atan2(
+        pz, 
+        px
+    ) - std::atan2(
+        k2, 
+        k1
+    );
+
+    sol.success = true;
+
+    sol.torso_yaw = theta_torso;
+
+    sol.shoulder = shoulder;
+
+    sol.elbow = elbow;
+
+    return sol;
+}
