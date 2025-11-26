@@ -9,6 +9,7 @@
 
 using drake::math::RigidTransformd;
 using drake::multibody::RevoluteJoint;
+using drake::multibody::JointActuator;
 using drake::multibody::UnitInertia;
 using drake::multibody::SpatialInertia;
 using drake::geometry::Cylinder;
@@ -68,6 +69,11 @@ ArmWithCup AddTripleLinkArmWithCup(
         Eigen::Vector3d::UnitY()
     );
 
+    mbp->AddJointActuator(
+        name_prefix + "shoulder_act",
+        shoulder
+    );
+
     mbp->RegisterVisualGeometry(
         link1,
         RigidTransformd(
@@ -111,6 +117,12 @@ ArmWithCup AddTripleLinkArmWithCup(
         link2,
         std::nullopt,
         Eigen::Vector3d::UnitY()
+    );
+
+    
+    mbp->AddJointActuator(
+        name_prefix + "elbow_act",
+        elbow
     );
 
     mbp->RegisterVisualGeometry(

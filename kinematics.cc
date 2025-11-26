@@ -65,7 +65,7 @@ Eigen::Vector3d CupTorsoTarget(
         0.0
     );
 
-    double r = 1.5 * link_length;
+    double r = 1.2 * link_length;
 
     double omega = 2.0 * M_PI / period;
 
@@ -80,7 +80,7 @@ Eigen::Vector3d CupTorsoTarget(
     target_T.z() = shoulder_T.z() + h;
 
     return target_T;
-    
+
 }
 
 TwoLinkIKSolution Solve2LinkIK(
