@@ -8,6 +8,11 @@
 #include <drake/multibody/tree/rigid_body.h>
 #include <Eigen/Core>
 
+struct JointTarget {
+    std::string name;
+    double angle;
+};
+
 struct ArmWithCup {
     const drake::multibody::RevoluteJoint<double>* shoulder;
     const drake::multibody::RevoluteJoint<double>* elbow;

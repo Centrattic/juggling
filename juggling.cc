@@ -22,6 +22,8 @@
 #include <drake/systems/framework/diagram_builder.h>
 #include <drake/geometry/shape_specification.h>
 #include <drake/systems/controllers/pid_controller.h>
+#include <drake/systems/framework/input_port.h>
+#include <drake/systems/primitives/matrix_gain.h>
 
 using drake::geometry::Meshcat;
 using drake::geometry::MeshcatVisualizer;
@@ -35,6 +37,7 @@ using drake::multibody::UnitInertia;
 using drake::multibody::WeldJoint;
 using drake::systems::DiagramBuilder;
 using drake::systems::controllers::PidController;
+using drake::systems::MatrixGain;
 
 //  Note: Run ./build/juggling_demo from the /home/juggling folder
 
@@ -207,100 +210,15 @@ int main() {
         meshcat
     );
 
-    /* PID control */
-
-    const int nu = plant.num_actuators();
-
-    Eigen::VectorXd Kp(nu), Ki(nu), Kd(nu);
-
-    Kp.setConstant(50.0);
-
-    Ki.setConstant(0.0);
-
-    Kd.setConstant(5.0);
-
-    auto* pid = builder.AddSystem<PidController<double>>(
-        Kp,
-        Ki,
-        Kd
-    );
-
-    builder.Connect(
-        mbp.get_state_output_port(),
-        pid->get_input_port_estimated_state()
-    );
-
-    builder.Connect(
-        pid->get_output_port_control(),
-        mbp.get_actuation_input_port()
-    );
-
-    builder.ExportInput(
-        pid->get_input_port_desired_state(),
-        "desired_state"
-    );
-
-    auto diagram = builder.Build();
-
-    drake::systems::Simulator<double> simulator(
-        *diagram
-    );
-
-    auto& plant_context = diagram->GetMutableSubsystemContext(
-        mbp,
-        &simulator.get_mutable_context()
-    );
-
-    const int nq = mbp.num_positions();
-
-    const int nv = mbp.num_velocities();
-
-    Eigen::VectorXd q_des = Eigen::VectorXd::Zero(
-        nq
-    );
-
-    Eigen::VectorXd v_des = Eigen::VectorXd::Zero(
-        nv
-    );
-
-    /* Simulation, with inverse kinematics for positioning */
+    /* Defining consts and setting desired angles */
     
-    // Eigen::Vector3d Center1 = Eigen::Vector3d(
-    //     0,
-    //     0.0,
-    //     0.3
-    // );
-
-    // Eigen::Vector3d Center2 = Eigen::Vector3d(
-    //     0,
-    //     0.0,
-    //     0.6
-    // );
-
-    // Eigen::Vector3d g = Eigen::Vector3d(
-    //     0.0,
-    //     0.0,
-    //     -9.81
-    // );
-    
-    // ball release consts
-    // double t_release = 2.0;
-    
-    // double t_catch = 3.0;
-
-    // bool ball_released = false;
-
-    // Eigen::Vector3d p_release_W;
-
-    // Eigen::Vector3d v0_W;
-
     double radius = 0.10;
 
     double t_final = 20.0;
 
     double dt = 0.05;
 
-    double torso_w = 4.0;
+    double torso_w = 10.0;
 
     Eigen::Vector3d shoulder1_T(
         torso_radius,
@@ -345,15 +263,116 @@ int main() {
     );
 
     double shoulder1_rest = rest1.shoulder;
-    double elbow1_rest    = -rest1.elbow;
+    double elbow1_rest = -rest1.elbow;
 
     double shoulder2_rest = -rest1.shoulder;
-    double elbow2_rest    = rest1.elbow;
+    double elbow2_rest = rest1.elbow;
+
+    std::vector<JointTarget> targets = {
+        {
+            "arm1_shoulder", 
+            shoulder1_rest
+        },
+        {
+            "arm1_elbow",
+            elbow1_rest
+        },
+        {
+            "arm2_shoulder", 
+            shoulder2_rest
+        },
+        {
+            "arm2_elbow", 
+            elbow2_rest
+        },
+    };
+
+    /* PID control */
+
+    const int m  = static_cast<int>(targets.size());
+
+    const int nx = mbp.num_multibody_states();
+
+    const int nq = mbp.num_positions();
+
+    const int nv = mbp.num_velocities();
+
+    Eigen::MatrixXd S(2 * m, nx);
+
+    S.setZero();
+
+    for (int j = 0; j < m; ++j) {
+
+        const auto& jt = targets[j];
+
+        const auto& joint = mbp.GetJointByName<RevoluteJoint>(
+            jt.name
+        );
+
+        const int q_index = joint.position_start();  
+
+        const int v_index = nq + joint.velocity_start();
+
+        S(j, q_index) = 1.0; // to select
+
+        S(m + j, v_index) = 1.0;
+    }
+
+    auto* selector = builder.AddSystem<MatrixGain<double>>(
+        S
+    );
+
+    Eigen::VectorXd Kp(m), Ki(m), Kd(m);
+
+    Kp.setConstant(50.0);
+
+    Ki.setConstant(0.0);
+
+    Kd.setConstant(5.0);
+
+    auto* pid = builder.AddSystem<PidController<double>>(
+        Kp,
+        Ki,
+        Kd
+    );
+
+    builder.Connect(
+        mbp.get_state_output_port(),
+        selector->get_input_port()
+    );
+
+    builder.Connect(
+        selector->get_output_port(),
+        pid->get_input_port_estimated_state()
+    );
+
+     builder.Connect(
+        pid->get_output_port_control(),
+        mbp.get_actuation_input_port()
+    );
+
+    const drake::systems::InputPortIndex desired_state_port_index = builder.ExportInput(
+        pid->get_input_port_desired_state(),
+        "desired_state"
+    );
+
+    auto diagram = builder.Build();
+
+    drake::systems::Simulator<double> simulator(
+        *diagram
+    );
+
+    auto& diagram_context = simulator.get_mutable_context();
+
+    auto& plant_context = diagram->GetMutableSubsystemContext(
+        mbp,
+        &simulator.get_mutable_context()
+    );
 
     simulator.Initialize();
 
     simulator.set_target_realtime_rate(
-        1.0
+        0.0
     );
 
     for (double t = 0; t < t_final; t += dt) {
@@ -364,134 +383,39 @@ int main() {
             torso_w*t
         );
 
+        /* build x_des */
 
+        Eigen::VectorXd x_des(2 * m);
 
-        arm1.shoulder->set_angle(
-            &plant_context,
-            shoulder1_rest
+        for (int j = 0; j < m; ++j) {
+
+            const auto& jt = targets[j];
+
+            const auto& joint = mbp.GetJointByName<RevoluteJoint>(
+                jt.name
+            );
+
+            joint.set_angle( // initial value
+                &plant_context,
+                jt.angle
+            );
+
+            joint.set_angular_rate(
+                &plant_context,
+                0.0
+            );
+
+            x_des[j] = jt.angle;
+
+            x_des[m + j] = 0.0;
+        }
+
+        diagram->get_input_port(
+            desired_state_port_index
+        ).FixValue(
+            &diagram_context,
+            x_des
         );
-
-        double theta     = arm1.shoulder->get_angle(plant_context);
-
-        double theta_dot = arm1.shoulder->get_angular_rate(plant_context);  // or similar
-
-        double error_pos = theta_des - theta;
-
-        double error_vel = 0.0 - theta_dot;   // you want zero angular velocity
-
-        double tau = Kp * error_pos + Kd * error_vel + Ki * integral_error;
-
-        arm1.shoulder_actuator->set_torque(&plant_context, tau);
-
-
-        arm1.elbow->set_angle(
-            &plant_context,
-            elbow1_rest
-        );
-
-        arm2.shoulder->set_angle(
-            &plant_context,
-            shoulder2_rest
-        );
-
-        arm2.elbow->set_angle(
-            &plant_context,
-            elbow2_rest
-        );
-
-        // Eigen::Vector3d cup1_T = CupTorsoTarget(
-        //     t,
-        //     Eigen::Vector3d(
-        //         torso_radius,
-        //         0.0,
-        //         torso_height
-        //     ),
-        //     link_length,
-        //     h_mid,
-        //     h_amp,
-        //     period,
-        //     0.0 // phase
-        // );
-
-        // Eigen::Vector3d cup2_T = CupTorsoTarget(
-        //     t,
-        //     Eigen::Vector3d(
-        //         -torso_radius,
-        //         0.0,
-        //         torso_height
-        //     ),
-        //     link_length,
-        //     h_mid,
-        //     h_amp,
-        //     period,
-        //     M_PI // phase
-        // );
-
-        // Eigen::AngleAxisd Rz = Eigen::AngleAxisd(
-        //     torso_w,
-        //     Eigen::Vector3d::UnitZ()
-        // );
-
-        // Eigen::Vector3d p1_W = Rz * cup1_T;
-
-        // Eigen::Vector3d p2_W = Rz * cup2_T;
-
-        // TwoLinkIKSolution ik1 = Solve2LinkIK(
-        //     p1_W,
-        //     torso_w,
-        //     Eigen::Vector3d(
-        //         torso_radius,
-        //         0.0,
-        //         torso_height
-        //     ),
-        //     link_length,
-        //     link_length
-        // );
-
-        // if (ik1.success) {
-
-        //     arm1.shoulder->set_angle(
-        //         &plant_context, 
-        //         ik1.shoulder
-        //     );
-
-        //     arm1.elbow->set_angle(
-        //         &plant_context, 
-        //         ik1.elbow
-        //     );
-
-        // } else {
-
-        //     std::cout << "IK 1 failed" << std::endl;
-
-        // }
-
-        // TwoLinkIKSolution ik2 = Solve2LinkIK(
-        //     p2_W,
-        //     torso_w,
-        //     Eigen::Vector3d(
-        //         -torso_radius,
-        //         0.0,
-        //         torso_height
-        //     ),
-        //     link_length,
-        //     link_length
-        // );
-
-        // if (ik2.success) {
-
-        //     arm2.shoulder->set_angle(
-        //         &plant_context,
-        //         ik2.shoulder);
-
-        //     arm2.elbow->set_angle(
-        //         &plant_context,
-        //         ik2.elbow
-        //     );
-
-        // } else {
-        //     std::cout << "IK 2 failed" << std::endl;
-        // }
 
         auto X_WC = mbp.EvalBodyPoseInWorld(
             plant_context,
@@ -504,67 +428,9 @@ int main() {
             X_WC
         );
 
-        // plan and execute a single throw
-        // if (!ball_released && t >= t_release) {
-
-        //     auto X_WC = mbp.EvalBodyPoseInWorld(
-        //         plant_context,
-        //         *arm1.cup_body
-        //     );
-
-        //     p_release_W = X_WC.translation();
-
-        //     Eigen::Vector3d p_catch_W = CupPos2( // following circular traj
-        //         t_catch,
-        //         Center2,
-        //         radius
-        //     );
-
-        //     v0_W = ComputeThrowVelocity(
-        //         p_release_W,
-        //         p_catch_W,
-        //         t_release,
-        //         t_catch,
-        //         g
-        //     );
-
-        //     ball_released = true;
-        // }
-
-        // if (ball_released) {
-            
-        //     Eigen::Vector3d p_ball = ObjectPosition(
-        //         p_release_W,
-        //         v0_W,
-        //         t,
-        //         t_release,
-        //         g
-        //     );
-
-        //     mbp.SetFreeBodyPose(
-        //         &plant_context,
-        //         ball,
-        //         RigidTransformd(
-        //             p_ball
-        //         )
-        //     );
-        // } else { // prior to release
-
-        //     auto X_WC = mbp.EvalBodyPoseInWorld(
-        //         plant_context,
-        //         *arm1.cup_body
-        //     );
-
-        //     mbp.SetFreeBodyPose(
-        //         &plant_context,
-        //         ball,
-        //         X_WC
-        //     );
-        // }
-
         simulator.AdvanceTo(t);
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        // std::this_thread::sleep_for(std::chrono::milliseconds(50));
 
     }
 
