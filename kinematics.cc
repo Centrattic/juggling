@@ -104,6 +104,9 @@ TwoLinkIKSolution Solve2LinkIK(
     double px_plane = std::sqrt(
         p_rel.x()*p_rel.x() + p_rel.y()*p_rel.y()
     );
+    double px_signed = (
+        p_rel.x() >= 0.0 ? px_plane : -px_plane
+    );
 
     double pz_plane = p_rel.z();
 
@@ -144,7 +147,7 @@ TwoLinkIKSolution Solve2LinkIK(
 
     double shoulder = std::atan2(
         pz_plane,
-        px_plane
+        px_signed
     ) - std::atan2(
         k2,
         k1
@@ -189,6 +192,9 @@ TwoLinkIKSolution Solve2LinkIKWithOrientation(
     double px_plane = std::sqrt(
         elbow_rel.x() * elbow_rel.x() + elbow_rel.y() * elbow_rel.y()
     );
+    double px_signed = (
+        elbow_rel.x() >= 0.0 ? px_plane : -px_plane
+    );
 
     double pz_plane = elbow_rel.z();
 
@@ -203,7 +209,7 @@ TwoLinkIKSolution Solve2LinkIKWithOrientation(
 
     double shoulder = std::atan2(
         pz_plane, 
-        px_plane
+        px_signed
     );
 
     // elbow angle: direction of link2 relative to link1
@@ -277,6 +283,10 @@ ThreeLinkIKSolution Solve3LinkIKWithOrientation(
     double px_plane = std::sqrt(
         wrist_rel.x() * wrist_rel.x() + wrist_rel.y() * wrist_rel.y()
     );
+    
+    double px_signed = (
+        wrist_rel.x() >= 0.0 ? px_plane : -px_plane
+    );
 
     double pz_plane = wrist_rel.z();
     
@@ -287,13 +297,19 @@ ThreeLinkIKSolution Solve3LinkIKWithOrientation(
     );
     
     if (D > L1 + L2 || D < std::fabs(L1 - L2)) {
+
         sol.success = false;
+
         std::cerr << "IK failed: wrist distance D=" << D 
                   << " not in range [" << std::fabs(L1 - L2) << ", " << (L1 + L2) << "]" << std::endl;
-        std::cerr << "  cup_pos_T = (" << cup_pos_T.x() << ", " << cup_pos_T.y() << ", " << cup_pos_T.z() << ")" << std::endl;
+                  std::cerr << "  cup_pos_T = (" << cup_pos_T.x() << ", " << cup_pos_T.y() << ", " << cup_pos_T.z() << ")" << std::endl;
+        
         std::cerr << "  wrist_pos_T = (" << wrist_pos_T.x() << ", " << wrist_pos_T.y() << ", " << wrist_pos_T.z() << ")" << std::endl;
+        
         std::cerr << "  shoulder_T = (" << shoulder_T.x() << ", " << shoulder_T.y() << ", " << shoulder_T.z() << ")" << std::endl;
+        
         return sol;
+
     }
     
     double c2 = (D2 - L1*L1 - L2*L2) / (2.0 * L1 * L2);
@@ -318,7 +334,7 @@ ThreeLinkIKSolution Solve3LinkIKWithOrientation(
     
     double shoulder_angle = std::atan2(
         pz_plane,
-        px_plane
+        px_signed
     ) - std::atan2(
         k2, 
         k1
@@ -343,7 +359,6 @@ ThreeLinkIKSolution Solve3LinkIKWithOrientation(
         0.0,
         link1_dir_T.x() * sin_elbow + link1_dir_T.z() * cos_elbow
     );
-    
     
     // project directions to X-Z plane
     Eigen::Vector2d link2_plane(

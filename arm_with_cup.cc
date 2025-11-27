@@ -225,10 +225,10 @@ ArmWithCup AddTripleLinkArmWithCup(
     mbp->AddJoint<WeldJoint>(
         name_prefix + "weld_cup",
         link3,
-        std::nullopt,               // no separate frame on parent
+        std::nullopt,
         cup,
-        std::nullopt,               // no separate frame on child
-        RigidTransformd(            // fixed transform from parent to child
+        std::nullopt,
+        RigidTransformd(
             Eigen::Vector3d(
                 0,
                 0,

@@ -44,11 +44,9 @@ using drake::systems::MatrixGain;
 int main() {
     DiagramBuilder<double> builder;
 
-    /* performance note: dt = 0.05, since time_step=0.0 means continuous-time simulation, slower
-     */
     auto [plant, scene_graph] = drake::multibody::AddMultibodyPlantSceneGraph(
         &builder, 
-        0.05
+        0
     );
 
     MultibodyPlant<double>& mbp = plant;
@@ -105,7 +103,7 @@ int main() {
         Eigen::Vector3d::UnitZ()
     );
 
-    const double link_length = 0.35;
+    const double link_length = 0.25;
 
     const double link_radius = 0.03;
 
@@ -218,9 +216,9 @@ int main() {
 
     double t_final = 20.0;
 
-    double dt = 0.05;
+    double dt = 0.02;
 
-    double torso_w = 10.0;
+    double torso_w = 30.0;
 
     Eigen::Vector3d shoulder1_T(
         torso_radius,
@@ -228,15 +226,15 @@ int main() {
         torso_height
     );
 
-    // Eigen::Vector3d shoulder2_T(
-    //     -torso_radius,
-    //     0.0,
-    //     torso_height
-    // );
-
-    double r_side = 0.3; // 0.4 * (link_length * 3); 
+    Eigen::Vector3d shoulder2_T(
+        -torso_radius,
+        0.0,
+        torso_height
+    );
     
-    double cup_z_offset = 0.25;  // cup height relative to shoulder joint
+    double r_side = 0.22; 
+    
+    double cup_z_offset = 0.20;  
     
     Eigen::Vector3d cup1_pos_desired = shoulder1_T + Eigen::Vector3d(
         r_side, 
@@ -244,89 +242,103 @@ int main() {
         cup_z_offset
     );
     
+    Eigen::Vector3d cup2_pos_desired = shoulder2_T + Eigen::Vector3d(
+        -r_side,
+        0.0, 
+        cup_z_offset
+    );
+    
     Eigen::Vector3d cup1_direction_up = Eigen::Vector3d(
-        0.0,
+        0.2,
         0.0,
         1.0
-    );
+    ).normalized();
+    
+    Eigen::Vector3d cup2_direction_up = Eigen::Vector3d(
+        -0.2,
+        0.0,
+        1.0
+    ).normalized();
 
     std::cout << "arm1: shoulder1_T = (" << shoulder1_T.x() << ", " << shoulder1_T.y() << ", " << shoulder1_T.z() << ")" << std::endl;
+    
     std::cout << "arm1: cup1_pos_desired = (" << cup1_pos_desired.x() << ", " << cup1_pos_desired.y() << ", " << cup1_pos_desired.z() << ")" << std::endl;
 
     ThreeLinkIKSolution rest1 = Solve3LinkIKWithOrientation(
         cup1_pos_desired,
         cup1_direction_up,
-        0.0,  // torso angle
+        0.0, // torso angle
         shoulder1_T,
         link_length,
         link_length,
         link_length
     );
 
-    // Eigen::Vector3d shoulder2_T(
-    //     -torso_radius,
-    //     0.0,
-    //     torso_height
-    // );
+    std::cout << "arm2: shoulder2_T = (" << shoulder2_T.x() << ", " << shoulder2_T.y() << ", " << shoulder2_T.z() << ")" << std::endl;
     
-    // Eigen::Vector3d cup2_pos_desired = shoulder2_T + Eigen::Vector3d(
-    //     -r_side,
-    //     0.0, 
-    //     cup_z_offset
-    // );
+    std::cout << "arm2: cup2_pos_desired = (" << cup2_pos_desired.x() << ", " << cup2_pos_desired.y() << ", " << cup2_pos_desired.z() << ")" << std::endl;
     
-    // std::cout << "arm2: shoulder2_T = (" << shoulder2_T.x() << ", " << shoulder2_T.y() << ", " << shoulder2_T.z() << ")" << std::endl;
-    // std::cout << "arm2: cup2_pos_desired = (" << cup2_pos_desired.x() << ", " << cup2_pos_desired.y() << ", " << cup2_pos_desired.z() << ")" << std::endl;
-    
-    // ThreeLinkIKSolution rest2 = Solve3LinkIKWithOrientation(
-    //     cup2_pos_desired,
-    //     cup1_direction_up,  // Also face upward
-    //     0.0,
-    //     shoulder2_T,
-    //     link_length,
-    //     link_length,
-    //     link_length
-    // );
+    ThreeLinkIKSolution rest2 = Solve3LinkIKWithOrientation(
+        cup2_pos_desired,
+        cup2_direction_up, // also face upward
+        0.0,
+        shoulder2_T,
+        link_length,
+        link_length,
+        link_length
+    );
 
     if (!rest1.success) {
+
         std::cerr << "ERROR: IK solution failed for arm1!" << std::endl;
+
         std::cerr << "  cup_pos_desired = (" << cup1_pos_desired.x() << ", " 
                   << cup1_pos_desired.y() << ", " << cup1_pos_desired.z() << ")" << std::endl;
+
         std::cerr << "  shoulder1_T = (" << shoulder1_T.x() << ", " 
                   << shoulder1_T.y() << ", " << shoulder1_T.z() << ")" << std::endl;
+
         std::cerr << "  link_length = " << link_length << std::endl;
+
         return 1;
+
     }
     
-    // if (!rest2.success) {
-    //     std::cerr << "ERROR: IK solution failed for arm2!" << std::endl;
-    //     std::cerr << "  cup_pos_desired = (" << cup2_pos_desired.x() << ", " 
-    //               << cup2_pos_desired.y() << ", " << cup2_pos_desired.z() << ")" << std::endl;
-    //     return 1;
-    // }
+    if (!rest2.success) {
+
+        std::cerr << "ERROR: IK solution failed for arm2!" << std::endl;
+
+        std::cerr << "  cup_pos_desired = (" << cup2_pos_desired.x() << ", " 
+                  << cup2_pos_desired.y() << ", " << cup2_pos_desired.z() << ")" << std::endl;
+
+        std::cerr << "  shoulder2_T = (" << shoulder2_T.x() << ", " 
+                  << shoulder2_T.y() << ", " << shoulder2_T.z() << ")" << std::endl;
+
+        std::cerr << "  link_length = " << link_length << std::endl;
+
+        return 1;
+
+    }
 
     double shoulder1_rest = rest1.shoulder;
+
     double elbow1_rest = rest1.elbow;
+
     double wrist1_rest = rest1.wrist;
 
-    // manual mirror
-    double shoulder2_rest = -rest1.shoulder;
-    double elbow2_rest = rest1.elbow;
-    double wrist2_rest = -rest1.wrist;
+    double shoulder2_rest = rest2.shoulder;
 
-    // Debug: check wrist angles 
+    double elbow2_rest = rest2.elbow;
+
+    double wrist2_rest = rest2.wrist;
+
+    // DEBUG: IK solutions 
     std::cout << "IK solution - arm1: shoulder=" << shoulder1_rest 
               << ", elbow=" << elbow1_rest << ", wrist=" << wrist1_rest << std::endl;
+              
     std::cout << "IK solution - arm2: shoulder=" << shoulder2_rest 
               << ", elbow=" << elbow2_rest << ", wrist=" << wrist2_rest << std::endl;
     
-    // Check for invalid angles
-    if (std::isnan(wrist1_rest) || std::isinf(wrist1_rest) || 
-        std::isnan(wrist2_rest) || std::isinf(wrist2_rest)) {
-        std::cerr << "ERROR: Invalid wrist angles computed!" << std::endl;
-        return 1;
-    }
-
     std::vector<JointTarget> targets = {
         {
             "arm1_shoulder", 
@@ -380,10 +392,30 @@ int main() {
         const int q_index = joint.position_start();  
 
         const int v_index = nq + joint.velocity_start();
+        
+        // DEBUG
+        if (q_index < 0 || q_index >= nq) {
+            
+            std::cerr << "ERROR: Invalid position index " << q_index 
+                      << " for joint " << jt.name << " (nq=" << nq << ")" << std::endl;
+            
+                      return 1;
+        }
+        if (v_index < nq || v_index >= nx) {
+
+            std::cerr << "ERROR: Invalid velocity index " << v_index 
+                      << " for joint " << jt.name << " (nv=" << nv << ", nx=" << nx << ")" << std::endl;
+           
+            return 1;
+        }
 
         S(j, q_index) = 1.0; // to select
 
         S(m + j, v_index) = 1.0;
+        
+        std::cout << "Selector: joint " << jt.name << " -> S[" << j << "," << q_index 
+                  << "] and S[" << (m+j) << "," << v_index << "]" << std::endl;
+
     }
 
     auto* selector = builder.AddSystem<MatrixGain<double>>(
@@ -392,11 +424,11 @@ int main() {
 
     Eigen::VectorXd Kp(m), Ki(m), Kd(m);
 
-    Kp.setConstant(40.0);
+    Kp.setConstant(30.0);
 
     Ki.setConstant(0.0);
 
-    Kd.setConstant(0.0);
+    Kd.setConstant(2.0);
 
     auto* pid = builder.AddSystem<PidController<double>>(
         Kp,
@@ -466,15 +498,9 @@ int main() {
             return 1;
         }
     }
-
-    std::cout << "All joints set, now initializing simulator" << std::endl;
-
-    simulator.Initialize();
     
     auto& diagram_context = simulator.get_mutable_context();
-
-    std::cout << "Simulator initialized" << std::endl;
-
+    
     Eigen::VectorXd x_des(2 * m);
 
     for (int j = 0; j < m; ++j) {
@@ -483,91 +509,97 @@ int main() {
 
         x_des[m + j] = 0.0; // desired velocity is always 0
     }
+        
     // fix value is expensive (rebuilds graph)
     diagram->get_input_port(desired_state_port_index).FixValue(
         &diagram_context,
         x_des
     );
+    
+    simulator.Initialize();
+
+    std::cout << "Simulator initialized" << std::endl;
+    
+    // DEBUG: Check current state and PID inputs/outputs before first step
+    auto current_positions = mbp.GetPositions(plant_context);
+
+    auto current_velocities = mbp.GetVelocities(plant_context);
+
+    std::cout << "Current positions: " << current_positions.transpose() << std::endl;
+
+    std::cout << "Current velocities: " << current_velocities.transpose() << std::endl;
+    
+    // construct full state vector [q; v]
+    Eigen::VectorXd full_state_value(nx);
+
+    full_state_value.head(nq) = current_positions;
+
+    full_state_value.tail(nv) = current_velocities;
+
+    std::cout << "Full state size: " << full_state_value.size() << " (nq=" << nq << ", nv=" << nv << ")" << std::endl;
+    
+    std::cout << "Full state from plant: " << full_state_value.transpose() << std::endl;
+    }
 
     simulator.set_target_realtime_rate(
         1.0
     );
 
     /* throw details */
-    double throw_start = 1.0;
+    // double throw_start = 1.0;
 
-    double throw_duration = 0.4;
+    // double throw_duration = 0.4;
 
-    double throw_amp = 0.8;
+    // double throw_amp = 0.8;
 
-    // auto throw_profile = [&](double t, double q0) {
+    // bool ball_released = false;
 
-    //     if (t < throw_start) return q0;
+    // double release_time = throw_start + 0.9 * throw_duration;
 
-    //     if (t > throw_start + throw_duration) return q0 + throw_amp;
-
-    //     double s = (t - throw_start) / throw_duration;  // 0..1
-
-    //     // smooth cubic
-    //     double s3 = 3*s*s - 2*s*s*s;
-
-    //     return q0 + throw_amp * s3;
-    // };
-
-    bool ball_released = false;
-
-    double release_time = throw_start + 0.9 * throw_duration;
+    base_yaw.set_angular_rate(
+        &plant_context,
+        torso_w  // constant rotation rate
+    );
 
     for (double t = 0; t < t_final; t += dt) {
+    
+        /* DEBUG: check PID inputs/outputs before each step */
 
-        // torso rot, still performance bottleneck
-        base_yaw.set_angle(
-            &plant_context,
-            torso_w * t
-        );
+        auto current_pos = mbp.GetPositions(plant_context);
 
-        if (!ball_released) {
+        auto current_vel = mbp.GetVelocities(plant_context);
 
-            if (t >= release_time - dt) {
+        Eigen::VectorXd full_state(nx);
 
-                auto X_WC = mbp.EvalBodyPoseInWorld(
-                    plant_context, 
-                    *arm1.cup_body
-                );
+        full_state.head(nq) = current_pos;
 
-                SpatialVelocity<double> V_WC = mbp.EvalBodySpatialVelocityInWorld(
-                    plant_context,
-                    *arm1.cup_body
-                );
+        full_state.tail(nv) = current_vel;
 
-                mbp.SetFreeBodyPose(
-                    &plant_context,
-                    ball,
-                    X_WC
-                );
+        Eigen::VectorXd selected = S * full_state;
 
-                mbp.SetFreeBodySpatialVelocity(
-                    &plant_context,
-                    ball,
-                    V_WC
-                );
+        Eigen::VectorXd error = x_des - selected;
+        
+        std::cout << "\n=== Step at t=" << t << " ===" << std::endl;
 
-                ball_released = true;
+        std::cout << "Selected state: " << selected.transpose() << std::endl;
 
-            } else {
+        std::cout << "Error: " << error.transpose() << std::endl;
 
-                auto X_WC = mbp.EvalBodyPoseInWorld(
-                    plant_context, 
-                    *arm1.cup_body
-                );
+        Eigen::VectorXd expected_torque = Kp.asDiagonal() * error.head(m) + 
+                                            Kd.asDiagonal() * error.tail(m);
 
-                mbp.SetFreeBodyPose(
-                    &plant_context,
-                    ball,
-                    X_WC
-                );
+        std::cout << "Expected torque (Kp*pos_err + Kd*vel_err): " << expected_torque.transpose() << std::endl;
+        
+        // Check for NaN/Inf in expected torque
+        for (int i = 0; i < expected_torque.size(); ++i) {
+            // Warn if torque is very large (might cause numerical issues)
+            if (std::abs(expected_torque[i]) > 20.0) {
+
+                std::cerr << "WARNING: Large torque at index " << i 
+                            << " at t=" << t << ": " << expected_torque[i] 
+                            << " Nm (may cause numerical issues)" << std::endl;
+
             }
-        }
 
         simulator.AdvanceTo(t+dt);
 
