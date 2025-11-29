@@ -113,3 +113,10 @@ ThreeLinkIKSolution SimpleKinematicsSolution(
     double L2,
     double L3
 );
+
+std::pair<double, double> CalculateDropHeightAndTime(
+    double cup_radius,
+    double cup_z,
+    double torso_w,
+    const Eigen::Vector3d& g
+);

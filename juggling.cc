@@ -110,10 +110,11 @@ int main() {
     const double link_mass = 1.0;
 
     // cup position in cylindrical coordinates
-    const double cup_radius = 0.40; // radius from the center of the cup
+    const double cup_radius = 0.32; // radius from the center of the cup
 
-    const double cup_z = torso_height + 0.20; // height from the ground
-    
+    const double cup_z = torso_height + 0.10; // height from the ground
+
+    const double ball_cup_offset_z = 0.10;
 
     ArmWithCup arm1 = AddTripleLinkArmWithCup(
         &mbp,
@@ -151,6 +152,7 @@ int main() {
         cup_z
     );
 
+    /* Ball settings: connected to world with planar joint */
     const double ball_radius = 0.04;
 
     const double ball_mass = 0.1;
@@ -166,19 +168,6 @@ int main() {
     auto& ball = mbp.AddRigidBody(
         "ball",
         ball_inertia
-    );
-
-    mbp.RegisterCollisionGeometry(
-        ball,
-        RigidTransformd::Identity(),
-        drake::geometry::Sphere(
-            ball_radius
-        ),
-        "ball_collision",
-        CoulombFriction<double>(
-            0.9,
-            0.5
-        )
     );
 
     mbp.RegisterVisualGeometry(
@@ -200,7 +189,13 @@ int main() {
     //     Eigen::Vector3d::Zero()
     // );
 
+    // optimize collision so it's possibly a bit faster?
+    // mbp.set_contact_model(
+    //     drake::multibody::ContactModel::kPoint
+    // );
+
     mbp.Finalize();
+
 
     /* Visualizing in meschat */
 
@@ -218,7 +213,7 @@ int main() {
 
     double dt = 0.02;
 
-    double torso_w = 30.0;
+    double torso_w = 10.0;
 
     ThreeLinkIKSolution rest1 = SimpleKinematicsSolution(
         Eigen::Vector2d(
@@ -472,12 +467,57 @@ int main() {
     
     simulator.Initialize();
 
+    // calc drop height
+    const Eigen::Vector3d g(
+        0.0,
+        0.0,
+        -9.81
+    );
+
+    auto [ball_drop_height, catch_time] = CalculateDropHeightAndTime(
+        cup_radius,
+        cup_z + ball_cup_offset_z,
+        torso_w,
+        g
+    );
+    
+    // init ball as free body at drop position
+    mbp.SetFreeBodyPose(
+        &plant_context,
+        ball,
+        RigidTransformd(
+            Eigen::Vector3d(
+                cup_radius,  // x: aligned with cup
+                0.0,         // y: at y=0
+                ball_drop_height  // z: calculated drop height
+            )
+        )
+    );
+    
+    mbp.SetFreeBodySpatialVelocity(
+        &plant_context,
+        ball,
+        SpatialVelocity<double>(
+            Eigen::Vector3d::Zero(),
+            Eigen::Vector3d::Zero() 
+        )
+    );
+    
+    // Ball state tracking
+    double ball_drop_time = 0.0;
+
+    bool ball_caught = false;
+
     std::cout << "Simulator initialized" << std::endl;
     
     // DEBUG: Check current state and PID inputs/outputs before first step
-    auto current_positions = mbp.GetPositions(plant_context);
+    auto current_positions = mbp.GetPositions(
+        plant_context
+    );
 
-    auto current_velocities = mbp.GetVelocities(plant_context);
+    auto current_velocities = mbp.GetVelocities(
+        plant_context
+    );
 
     std::cout << "Current positions: " << current_positions.transpose() << std::endl;
 
@@ -493,7 +533,6 @@ int main() {
     std::cout << "Full state size: " << full_state_value.size() << " (nq=" << nq << ", nv=" << nv << ")" << std::endl;
     
     std::cout << "Full state from plant: " << full_state_value.transpose() << std::endl;
-    
 
     simulator.set_target_realtime_rate(
         1.0
@@ -515,15 +554,92 @@ int main() {
         torso_w  // constant rotation rate
     );
 
+    // Meschat connection delay
+    std::cout << "Waiting for Meshcat to connect..." << std::endl;
+
+    std::this_thread::sleep_for(
+        std::chrono::milliseconds(
+            5000
+        )
+    );
+
+    std::cout << "Starting simulation..." << std::endl;
+
     for (double t = 0; t < t_final; t += dt) {
+
+        RigidTransformd ball_pose = mbp.GetFreeBodyPose(
+            plant_context, 
+            ball
+        );
+
+        SpatialVelocity<double> ball_spatial_vel = mbp.EvalBodySpatialVelocityInWorld(
+            plant_context, 
+            ball
+        );
+        
+        Eigen::Vector3d ball_pos = ball_pose.translation();
+
+        Eigen::Vector3d ball_velocity = ball_spatial_vel.translational();
+        
+        RigidTransformd cup1_pose = mbp.EvalBodyPoseInWorld(
+            plant_context,
+            *arm1.cup_body
+        );
+        
+        Eigen::Vector3d cup1_pos_W = cup1_pose.translation();
+        
+        // check if ball should be caught (when it reaches cup_z + ball_cup_offset_z and cup is at y=0)
+        if (!ball_caught && t >= catch_time && ball_pos.z() <= cup_z + ball_cup_offset_z + 0.05) {
+            
+            ball_caught = true;
+            
+        }
+        
+        // keep caught ball in cup
+        if (ball_caught) {
+
+            // get curr cup pose and velocity
+            RigidTransformd current_cup_pose = mbp.EvalBodyPoseInWorld(
+                plant_context,
+                *arm1.cup_body
+            );
+            SpatialVelocity<double> cup_velocity = mbp.EvalBodySpatialVelocityInWorld(
+                plant_context,
+                *arm1.cup_body
+            );
+            
+            Eigen::Vector3d current_cup_pos = current_cup_pose.translation();
+            
+            Eigen::Vector3d ball_in_cup_pos = current_cup_pos;
+
+            ball_in_cup_pos.z() = current_cup_pos.z() + ball_cup_offset_z;
+            
+            mbp.SetFreeBodyPose(
+                &plant_context,
+                ball,
+                RigidTransformd(ball_in_cup_pos)
+            );
+            
+            mbp.SetFreeBodySpatialVelocity(
+                &plant_context,
+                ball,
+                cup_velocity
+            );
+        }        
     
         /* DEBUG: check PID inputs/outputs before each step */
 
-        auto current_pos = mbp.GetPositions(plant_context);
+        auto current_pos = mbp.GetPositions(
+            plant_context
+        );
 
-        auto current_vel = mbp.GetVelocities(plant_context);
+        auto current_vel = mbp.GetVelocities(
+            plant_context
+        );
 
-        Eigen::VectorXd full_state(nx);
+        Eigen::VectorXd full_state(
+            nx
+        );
 
         full_state.head(nq) = current_pos;
 
@@ -533,32 +649,37 @@ int main() {
 
         Eigen::VectorXd error = x_des - selected;
         
-        std::cout << "\n=== Step at t=" << t << " ===" << std::endl;
+        if (static_cast<int>(t * 10) % 25 == 0) { // Every 0.5 seconds (25 steps at dt=0.02)
+            std::cout << "\n=== Step at t=" << t << " ===" << std::endl;
 
-        std::cout << "Selected state: " << selected.transpose() << std::endl;
+            std::cout << "Ball pos: (" << ball_pos.x() << ", " << ball_pos.y() << ", " << ball_pos.z() << ")" << std::endl;
 
-        std::cout << "Error: " << error.transpose() << std::endl;
-
+            std::cout << "Ball vel: (" << ball_velocity.x() << ", " << ball_velocity.y() << ", " << ball_velocity.z() << ")" << std::endl;
+        }
+        
+        // Check for large torques
         Eigen::VectorXd expected_torque = Kp.asDiagonal() * error.head(m) + 
                                             Kd.asDiagonal() * error.tail(m);
 
-        std::cout << "Expected torque (Kp*pos_err + Kd*vel_err): " << expected_torque.transpose() << std::endl;
-        
         for (int i = 0; i < expected_torque.size(); ++i) {
 
-            // Warn if torque is very large (might cause numerical issues)
             if (std::abs(expected_torque[i]) > 20.0) {
-
+                
                 std::cerr << "WARNING: Large torque at index " << i 
                             << " at t=" << t << ": " << expected_torque[i] 
                             << " Nm (may cause numerical issues)" << std::endl;
-
             }
         }
 
-        simulator.AdvanceTo(t+dt);
+        simulator.AdvanceTo(
+            t+dt
+        );
 
-        std::this_thread::sleep_for(std::chrono::milliseconds(50));
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(
+                10
+            )
+        );
 
     }
 
