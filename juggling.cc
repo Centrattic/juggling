@@ -110,9 +110,9 @@ int main() {
     const double link_mass = 1.0;
 
     // cup position in cylindrical coordinates
-    const double cup_radius = 0.22;
+    const double cup_radius = 0.40; // radius from the center of the cup
 
-    const double cup_z = torso_height + 0.20;
+    const double cup_z = torso_height + 0.20; // height from the ground
     
 
     ArmWithCup arm1 = AddTripleLinkArmWithCup(
@@ -214,92 +214,44 @@ int main() {
 
     /* Defining consts and setting desired angles */
     
-    double radius = 0.10;
-
     double t_final = 20.0;
 
     double dt = 0.02;
 
     double torso_w = 30.0;
 
-    Eigen::Vector3d shoulder1_T(
-        torso_radius,
-        0.0,
-        torso_height
-    );
-
-    Eigen::Vector3d shoulder2_T(
-        -torso_radius,
-        0.0,
-        torso_height
-    );
-        
-    // arm offsets: for arm1, angle = 0, arm2 angle = M_PI
-    double arm1_angle = 0.0;
-    double arm2_angle = M_PI;
-    
-    Eigen::Vector3d cup1_pos_desired = Eigen::Vector3d(
-        cup_radius * std::cos(arm1_angle),
-        cup_radius * std::sin(arm1_angle),
-        cup_z
-    );
-    
-    Eigen::Vector3d cup2_pos_desired = Eigen::Vector3d(
-        cup_radius * std::cos(arm2_angle),
-        cup_radius * std::sin(arm2_angle),
-        cup_z
-    );
-    
-    // must be in x-z plane?? idk
-    Eigen::Vector3d cup1_direction_up = Eigen::Vector3d(
-        0.0,
-        0.0,
-        1.0
-    ).normalized();
-    
-    Eigen::Vector3d cup2_direction_up = Eigen::Vector3d(
-        0.0,
-        0.0,
-        1.0
-    ).normalized();
-
-    std::cout << "arm1: shoulder1_T = (" << shoulder1_T.x() << ", " << shoulder1_T.y() << ", " << shoulder1_T.z() << ")" << std::endl;
-    
-    std::cout << "arm1: cup1_pos_desired = (" << cup1_pos_desired.x() << ", " << cup1_pos_desired.y() << ", " << cup1_pos_desired.z() << ")" << std::endl;
-
-    ThreeLinkIKSolution rest1 = Solve3LinkIKWithOrientation(
-        cup1_pos_desired,
-        cup1_direction_up,
-        0.0, // torso angle
-        shoulder1_T,
+    ThreeLinkIKSolution rest1 = SimpleKinematicsSolution(
+        Eigen::Vector2d(
+            cup_radius, // from torso center
+            cup_z // from ground
+        ),
+        M_PI / 2.0,
+        torso_height,
         link_length,
         link_length,
         link_length
     );
+    
+    // ThreeLinkIKSolution rest2 = Solve3LinkIKWithOrientation(
+    //     cup2_pos_desired,
+    //     cup2_direction_up, // also face upward
+    //     0.0,
+    //     shoulder2_T,
+    //     link_length,
+    //     link_length,
+    //     link_length
+    // );
 
-    std::cout << "arm2: shoulder2_T = (" << shoulder2_T.x() << ", " << shoulder2_T.y() << ", " << shoulder2_T.z() << ")" << std::endl;
-    
-    std::cout << "arm2: cup2_pos_desired = (" << cup2_pos_desired.x() << ", " << cup2_pos_desired.y() << ", " << cup2_pos_desired.z() << ")" << std::endl;
-    
-    ThreeLinkIKSolution rest2 = Solve3LinkIKWithOrientation(
-        cup2_pos_desired,
-        cup2_direction_up, // also face upward
-        0.0,
-        shoulder2_T,
-        link_length,
-        link_length,
-        link_length
+    ThreeLinkIKSolution rest2 = ThreeLinkIKSolution(
+        true,
+        -rest1.shoulder,
+        -rest1.elbow,
+        -rest1.wrist
     );
 
     if (!rest1.success) {
 
         std::cerr << "ERROR: IK solution failed for arm1!" << std::endl;
-
-        std::cerr << "  cup_pos_desired = (" << cup1_pos_desired.x() << ", " 
-                  << cup1_pos_desired.y() << ", " << cup1_pos_desired.z() << ")" << std::endl;
-
-        std::cerr << "  shoulder1_T = (" << shoulder1_T.x() << ", " 
-                  << shoulder1_T.y() << ", " << shoulder1_T.z() << ")" << std::endl;
 
         std::cerr << "  link_length = " << link_length << std::endl;
 
@@ -310,12 +262,6 @@ int main() {
     if (!rest2.success) {
 
         std::cerr << "ERROR: IK solution failed for arm2!" << std::endl;
-
-        std::cerr << "  cup_pos_desired = (" << cup2_pos_desired.x() << ", " 
-                  << cup2_pos_desired.y() << ", " << cup2_pos_desired.z() << ")" << std::endl;
-
-        std::cerr << "  shoulder2_T = (" << shoulder2_T.x() << ", " 
-                  << shoulder2_T.y() << ", " << shoulder2_T.z() << ")" << std::endl;
 
         std::cerr << "  link_length = " << link_length << std::endl;
 

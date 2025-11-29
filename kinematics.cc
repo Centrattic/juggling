@@ -83,346 +83,10 @@ Eigen::Vector3d CupTorsoTarget(
 
 }
 
-TwoLinkIKSolution Solve2LinkIK(
-    const Eigen::Vector3d& p_W,
-    double theta_torso,
-    const Eigen::Vector3d& shoulder_T,
-    double L1,
-    double L2
-) {
-    TwoLinkIKSolution sol;
-
-    Eigen::AngleAxisd Rz_neg(
-        -theta_torso,
-        Eigen::Vector3d::UnitZ()
-    );
-
-    Eigen::Vector3d p_T = Rz_neg * p_W;
-
-    Eigen::Vector3d p_rel = p_T - shoulder_T;
-
-    double px_plane = std::sqrt(
-        p_rel.x()*p_rel.x() + p_rel.y()*p_rel.y()
-    );
-    double px_signed = (
-        p_rel.x() >= 0.0 ? px_plane : -px_plane
-    );
-
-    double pz_plane = p_rel.z();
-
-    double D2 = px_plane*px_plane + pz_plane*pz_plane;
-
-    double D = std::sqrt(
-        D2
-    );
-
-    if (D > L1 + L2 || D < std::fabs(L1 - L2)) {
-
-        sol.success = false;
-        return sol; // unreachable
-
-    }
-
-    double c2 = (D2 - L1*L1 - L2*L2) / (2.0 * L1 * L2);
-
-    if (c2 < -1.0 || c2 > 1.0) {
-
-        sol.success = false;
-        return sol;
-
-    }
-
-    double s2 = std::sqrt(
-        1.0 - c2*c2
-    );
-    
-    double elbow = std::atan2(
-        s2, 
-        c2
-    );
-
-    double k1 = L1 + L2 * c2;
-
-    double k2 = L2 * s2;
-
-    double shoulder = std::atan2(
-        pz_plane,
-        px_signed
-    ) - std::atan2(
-        k2,
-        k1
-    );
-
-    sol.success = true;
-
-    sol.shoulder = shoulder;
-
-    sol.elbow = elbow;
-
-    return sol;
-}
-
-TwoLinkIKSolution Solve2LinkIKWithOrientation(
-    const Eigen::Vector3d& cup_pos_W,
-    const Eigen::Vector3d& cup_direction_W,
-    double theta_torso,
-    const Eigen::Vector3d& shoulder_T,
-    double L1,
-    double L2
-) {
-    TwoLinkIKSolution sol;
-
-    Eigen::AngleAxisd Rz_neg(
-        -theta_torso,
-        Eigen::Vector3d::UnitZ()
-    );
-
-    Eigen::Vector3d cup_pos_T = Rz_neg * cup_pos_W;
-
-    Eigen::Vector3d cup_dir_T = Rz_neg * cup_direction_W;
-
-    Eigen::Vector3d cup_rel = cup_pos_T - shoulder_T;
-
-    Eigen::Vector3d cup_dir_normalized = cup_dir_T.normalized();
-
-    Eigen::Vector3d elbow_pos_T = cup_pos_T - L2 * cup_dir_normalized;
-    
-    Eigen::Vector3d elbow_rel = elbow_pos_T - shoulder_T;
-
-    double px_plane = std::sqrt(
-        elbow_rel.x() * elbow_rel.x() + elbow_rel.y() * elbow_rel.y()
-    );
-    double px_signed = (
-        elbow_rel.x() >= 0.0 ? px_plane : -px_plane
-    );
-
-    double pz_plane = elbow_rel.z();
-
-    double D = std::sqrt(
-        px_plane * px_plane + pz_plane * pz_plane
-    );
-
-    if (D > L1 || D < 1e-6) {
-        sol.success = false;
-        return sol;
-    }
-
-    double shoulder = std::atan2(
-        pz_plane, 
-        px_signed
-    );
-
-    // elbow angle: direction of link2 relative to link1
-    Eigen::Vector3d link1_dir_T(
-        std::cos(shoulder),
-        0.0,
-        std::sin(shoulder)
-    );
-
-    double cos_elbow = link1_dir_T.dot(
-        cup_dir_normalized
-    );
-
-    cos_elbow = std::max(
-        -1.0,
-        std::min(
-            1.0,
-            cos_elbow
-        )
-    );
-    
-    double elbow = std::acos(
-        cos_elbow
-    );
-    
-    // Determine sign based on cross product
-    double cross_y = link1_dir_T.x() * cup_dir_normalized.z() - 
-                     link1_dir_T.z() * cup_dir_normalized.x();
-
-    if (cross_y < 0) {
-        elbow = -elbow;
-    }
-
-    sol.success = true;
-
-    sol.shoulder = shoulder;
-
-    sol.elbow = elbow;
-
-    return sol;
-}
-
-ThreeLinkIKSolution Solve3LinkIKWithOrientation(
-    const Eigen::Vector3d& cup_pos_W,
-    const Eigen::Vector3d& cup_direction_W,
-    double theta_torso,
-    const Eigen::Vector3d& shoulder_T,
-    double L1,
-    double L2,
-    double L3
-) {
-    ThreeLinkIKSolution sol;
-    
-    // transform to torso frame
-    Eigen::AngleAxisd Rz_neg(
-        -theta_torso,
-        Eigen::Vector3d::UnitZ()
-    );
-    
-    Eigen::Vector3d cup_pos_T = Rz_neg * cup_pos_W;
-
-    Eigen::Vector3d cup_dir_T = Rz_neg * cup_direction_W;
-
-    Eigen::Vector3d cup_dir_normalized = cup_dir_T.normalized();
-    
-    Eigen::Vector3d wrist_pos_T = cup_pos_T - L3 * cup_dir_normalized;
-    
-    // solve 2-link IK directly in torso frame to reach wrist position
-    Eigen::Vector3d wrist_rel = wrist_pos_T - shoulder_T;
-    
-    double px_plane = std::sqrt(
-        wrist_rel.x() * wrist_rel.x() + wrist_rel.y() * wrist_rel.y()
-    );
-    
-    double px_signed = (
-        wrist_rel.x() >= 0.0 ? px_plane : -px_plane
-    );
-
-    double pz_plane = wrist_rel.z();
-    
-    double D2 = px_plane * px_plane + pz_plane * pz_plane;
-
-    double D = std::sqrt(
-        D2
-    );
-    
-    if (D > L1 + L2 || D < std::fabs(L1 - L2)) {
-
-        sol.success = false;
-
-        std::cerr << "IK failed: wrist distance D=" << D 
-                  << " not in range [" << std::fabs(L1 - L2) << ", " << (L1 + L2) << "]" << std::endl;
-                  std::cerr << "  cup_pos_T = (" << cup_pos_T.x() << ", " << cup_pos_T.y() << ", " << cup_pos_T.z() << ")" << std::endl;
-        
-        std::cerr << "  wrist_pos_T = (" << wrist_pos_T.x() << ", " << wrist_pos_T.y() << ", " << wrist_pos_T.z() << ")" << std::endl;
-        
-        std::cerr << "  shoulder_T = (" << shoulder_T.x() << ", " << shoulder_T.y() << ", " << shoulder_T.z() << ")" << std::endl;
-        
-        return sol;
-
-    }
-    
-    double c2 = (D2 - L1*L1 - L2*L2) / (2.0 * L1 * L2);
-    
-    if (c2 < -1.0 || c2 > 1.0) {
-        sol.success = false;
-        return sol;
-    }
-    
-    double s2 = std::sqrt(
-        1.0 - c2*c2
-    );
-    
-    double elbow_angle = std::atan2(
-        s2, 
-        c2
-    );
-    
-    double k1 = L1 + L2 * c2;
-
-    double k2 = L2 * s2;
-    
-    double shoulder_angle = std::atan2(
-        pz_plane,
-        px_signed
-    ) - std::atan2(
-        k2, 
-        k1
-    );
-    
-    sol.shoulder = shoulder_angle;
-    sol.elbow = elbow_angle;
-
-    // Link1 direction in torso frame
-    Eigen::Vector3d link1_dir_T(
-        std::cos(sol.shoulder),
-        0.0,
-        std::sin(sol.shoulder)
-    );
-    
-    double cos_elbow = std::cos(sol.elbow);
-
-    double sin_elbow = std::sin(sol.elbow);
-    
-    Eigen::Vector3d link2_dir_T(
-        link1_dir_T.x() * cos_elbow - link1_dir_T.z() * sin_elbow,
-        0.0,
-        link1_dir_T.x() * sin_elbow + link1_dir_T.z() * cos_elbow
-    );
-    
-    // Eigen::Vector3d link3_dir_T = (cup_pos_T - wrist_pos_T).normalized();
-
-    Eigen::Vector3d link3_desired_dir_T = cup_dir_normalized;
-    link3_desired_dir_T.y() = 0.0;  // Remove Y component (wrist can't rotate in Y direction)
-    link3_desired_dir_T.normalize();
-    
-    // project link2 direction to X-Z plane
-    Eigen::Vector2d link2_plane(
-        link2_dir_T.x(), 
-        link2_dir_T.z()
-    );
-
-    // project desired link3 direction to X-Z plane
-    Eigen::Vector2d link3_plane(
-        link3_desired_dir_T.x(), 
-        link3_desired_dir_T.z()
-    );
-    
-    // compute angles in X-Z plane
-    double link2_angle = std::atan2(
-        link2_plane.y(),  // Z component
-        link2_plane.x()   // X component
-    );
-
-    double link3_angle = std::atan2(
-        link3_plane.y(),  // Z component
-        link3_plane.x()   // X component
-    );
-    
-    sol.wrist = link3_angle - link2_angle;
-    
-    // normalize to [-pi, pi]
-    while (sol.wrist > M_PI) sol.wrist -= 2.0 * M_PI;
-
-    while (sol.wrist < -M_PI) sol.wrist += 2.0 * M_PI;
-    
-    // DEBUG
-    std::cout << "  IK wrist calc: link2_angle=" << link2_angle 
-              << ", link3_angle=" << link3_angle 
-              << ", wrist=" << sol.wrist << std::endl;
-
-    std::cout << "  link2_dir_T=(" << link2_dir_T.x() << ", " << link2_dir_T.y() << ", " << link2_dir_T.z() << ")" << std::endl;
-    
-    std::cout << "  link3_desired_dir_T=(" << link3_desired_dir_T.x() << ", " << link3_desired_dir_T.y() << ", " << link3_desired_dir_T.z() << ")" << std::endl;
-    
-    sol.success = true;
-    
-    return sol;
-}
-
-
-struct ThreeLinkIKSolution {
-    bool success{};
-    double shoulder{};
-    double elbow{};
-    double wrist{};
-};
-
-
 ThreeLinkIKSolution SimpleKinematicsSolution(
-    const Eigen::Vector2d& cup_pos_W, // radius, z
+    const Eigen::Vector2d& cup_pos_W, // radius, z, currently pos of link 2, not of cup
     double horizontal_cup_angle,
-    const Eigen::Vector3d& shoulder_T,
+    double torso_height,
     double L1,
     double L2,
     double L3
@@ -431,26 +95,33 @@ ThreeLinkIKSolution SimpleKinematicsSolution(
 
     double above_horizontal_wrist = horizontal_cup_angle;
 
-    double radius = cup_pos_W.x();
+    double radius = cup_pos_W.x() - L3 * std::cos(
+        above_horizontal_wrist
+    );
 
-    double z = cup_pos_W.y();
+    double z = torso_height - cup_pos_W.y() + L3 * std::sin(
+        above_horizontal_wrist
+    );
 
-    double theta = atan2(
+    double theta = std::atan2(
         radius,
         z
     );
 
-    double Ky = (L1^2 - L2^2 - r^2 - z^2) / 2*L2
+    double Ky = (L1*L1 - L2*L2 - radius*radius - z*z) / (2.0 * L2);
 
-    double above_horizontal_elbow = theta + arcsin(
-        Ky / r // Ky < r for real solution
+    double above_horizontal_elbow = theta + std::asin(
+        Ky / radius // Ky < r for real solution
     );
 
-    double below_horizontal_shoulder = atan2(
-        z + L2 * sin(
+    std::cout << "Ky = " << Ky << "radius = " << radius << std::endl;
+
+
+    double below_horizontal_shoulder = std::atan2(
+        z + L2 * std::sin(
             above_horizontal_elbow
         ),
-        radius - L2 * cos(
+        radius - L2 * std::cos(
             above_horizontal_elbow
         )
     );
