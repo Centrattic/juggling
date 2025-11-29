@@ -360,35 +360,108 @@ ThreeLinkIKSolution Solve3LinkIKWithOrientation(
         link1_dir_T.x() * sin_elbow + link1_dir_T.z() * cos_elbow
     );
     
-    // project directions to X-Z plane
+    // Eigen::Vector3d link3_dir_T = (cup_pos_T - wrist_pos_T).normalized();
+
+    Eigen::Vector3d link3_desired_dir_T = cup_dir_normalized;
+    link3_desired_dir_T.y() = 0.0;  // Remove Y component (wrist can't rotate in Y direction)
+    link3_desired_dir_T.normalize();
+    
+    // project link2 direction to X-Z plane
     Eigen::Vector2d link2_plane(
         link2_dir_T.x(), 
         link2_dir_T.z()
     );
 
-    Eigen::Vector2d cup_plane(
-        cup_dir_normalized.x(), 
-        cup_dir_normalized.z()
+    // project desired link3 direction to X-Z plane
+    Eigen::Vector2d link3_plane(
+        link3_desired_dir_T.x(), 
+        link3_desired_dir_T.z()
     );
     
+    // compute angles in X-Z plane
     double link2_angle = std::atan2(
-        link2_plane.y(), 
-        link2_plane.x()
+        link2_plane.y(),  // Z component
+        link2_plane.x()   // X component
     );
 
-    double cup_angle = std::atan2(
-        cup_plane.y(), 
-        cup_plane.x()
+    double link3_angle = std::atan2(
+        link3_plane.y(),  // Z component
+        link3_plane.x()   // X component
     );
     
-    sol.wrist = cup_angle - link2_angle;
+    sol.wrist = link3_angle - link2_angle;
     
     // normalize to [-pi, pi]
     while (sol.wrist > M_PI) sol.wrist -= 2.0 * M_PI;
 
     while (sol.wrist < -M_PI) sol.wrist += 2.0 * M_PI;
     
+    // DEBUG
+    std::cout << "  IK wrist calc: link2_angle=" << link2_angle 
+              << ", link3_angle=" << link3_angle 
+              << ", wrist=" << sol.wrist << std::endl;
+
+    std::cout << "  link2_dir_T=(" << link2_dir_T.x() << ", " << link2_dir_T.y() << ", " << link2_dir_T.z() << ")" << std::endl;
+    
+    std::cout << "  link3_desired_dir_T=(" << link3_desired_dir_T.x() << ", " << link3_desired_dir_T.y() << ", " << link3_desired_dir_T.z() << ")" << std::endl;
+    
     sol.success = true;
     
+    return sol;
+}
+
+
+struct ThreeLinkIKSolution {
+    bool success{};
+    double shoulder{};
+    double elbow{};
+    double wrist{};
+};
+
+
+ThreeLinkIKSolution SimpleKinematicsSolution(
+    const Eigen::Vector2d& cup_pos_W, // radius, z
+    double horizontal_cup_angle,
+    const Eigen::Vector3d& shoulder_T,
+    double L1,
+    double L2,
+    double L3
+) {
+    ThreeLinkIKSolution sol;
+
+    double above_horizontal_wrist = horizontal_cup_angle;
+
+    double radius = cup_pos_W.x();
+
+    double z = cup_pos_W.y();
+
+    double theta = atan2(
+        radius,
+        z
+    );
+
+    double Ky = (L1^2 - L2^2 - r^2 - z^2) / 2*L2
+
+    double above_horizontal_elbow = theta + arcsin(
+        Ky / r // Ky < r for real solution
+    );
+
+    double below_horizontal_shoulder = atan2(
+        z + L2 * sin(
+            above_horizontal_elbow
+        ),
+        radius - L2 * cos(
+            above_horizontal_elbow
+        )
+    );
+
+    sol.shoulder = -(M_PI / 2.0 + below_horizontal_shoulder);
+
+    sol.elbow = above_horizontal_elbow + below_horizontal_shoulder;
+
+    sol.wrist = above_horizontal_wrist - above_horizontal_elbow;
+
+    sol.success = true;
+
     return sol;
 }

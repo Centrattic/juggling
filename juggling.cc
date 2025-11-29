@@ -109,9 +109,11 @@ int main() {
 
     const double link_mass = 1.0;
 
-    const double cup_radius = 0.18;
+    // cup position in cylindrical coordinates
+    const double cup_radius = 0.22;
 
-    const double cup_height = 0.18;
+    const double cup_z = torso_height + 0.20;
+    
 
     ArmWithCup arm1 = AddTripleLinkArmWithCup(
         &mbp,
@@ -128,7 +130,7 @@ int main() {
         link_radius,
         link_mass,
         cup_radius,
-        cup_height
+        cup_z
     );
 
     ArmWithCup arm2 = AddTripleLinkArmWithCup(
@@ -146,7 +148,7 @@ int main() {
         link_radius,
         link_mass,
         cup_radius,
-        cup_height
+        cup_z
     );
 
     const double ball_radius = 0.04;
@@ -231,31 +233,32 @@ int main() {
         0.0,
         torso_height
     );
+        
+    // arm offsets: for arm1, angle = 0, arm2 angle = M_PI
+    double arm1_angle = 0.0;
+    double arm2_angle = M_PI;
     
-    double r_side = 0.22; 
-    
-    double cup_z_offset = 0.20;  
-    
-    Eigen::Vector3d cup1_pos_desired = shoulder1_T + Eigen::Vector3d(
-        r_side, 
-        0.0, 
-        cup_z_offset
+    Eigen::Vector3d cup1_pos_desired = Eigen::Vector3d(
+        cup_radius * std::cos(arm1_angle),
+        cup_radius * std::sin(arm1_angle),
+        cup_z
     );
     
-    Eigen::Vector3d cup2_pos_desired = shoulder2_T + Eigen::Vector3d(
-        -r_side,
-        0.0, 
-        cup_z_offset
+    Eigen::Vector3d cup2_pos_desired = Eigen::Vector3d(
+        cup_radius * std::cos(arm2_angle),
+        cup_radius * std::sin(arm2_angle),
+        cup_z
     );
     
+    // must be in x-z plane?? idk
     Eigen::Vector3d cup1_direction_up = Eigen::Vector3d(
-        0.2,
+        0.0,
         0.0,
         1.0
     ).normalized();
     
     Eigen::Vector3d cup2_direction_up = Eigen::Vector3d(
-        -0.2,
+        0.0,
         0.0,
         1.0
     ).normalized();
@@ -478,6 +481,7 @@ int main() {
         const auto& jt = targets[j];
 
         try {
+            
             const auto& joint = mbp.GetJointByName<RevoluteJoint>(
                 jt.name
             );
@@ -493,9 +497,13 @@ int main() {
                 &plant_context,
                 0.0
             );
+
         } catch (const std::exception& e) {
+
             std::cerr << "ERROR: Failed to set joint " << jt.name << ": " << e.what() << std::endl;
+
             return 1;
+
         }
     }
     
@@ -539,7 +547,7 @@ int main() {
     std::cout << "Full state size: " << full_state_value.size() << " (nq=" << nq << ", nv=" << nv << ")" << std::endl;
     
     std::cout << "Full state from plant: " << full_state_value.transpose() << std::endl;
-    }
+    
 
     simulator.set_target_realtime_rate(
         1.0
@@ -590,8 +598,8 @@ int main() {
 
         std::cout << "Expected torque (Kp*pos_err + Kd*vel_err): " << expected_torque.transpose() << std::endl;
         
-        // Check for NaN/Inf in expected torque
         for (int i = 0; i < expected_torque.size(); ++i) {
+
             // Warn if torque is very large (might cause numerical issues)
             if (std::abs(expected_torque[i]) > 20.0) {
 
@@ -600,6 +608,7 @@ int main() {
                             << " Nm (may cause numerical issues)" << std::endl;
 
             }
+        }
 
         simulator.AdvanceTo(t+dt);
 

@@ -105,3 +105,11 @@ ThreeLinkIKSolution Solve3LinkIKWithOrientation(
     double L3
 );
 
+ThreeLinkIKSolution SimpleKinematicsSolution(
+    const Eigen::Vector2d& cup_pos_W, // radius, z
+    double horizontal_cup_angle,
+    const Eigen::Vector3d& shoulder_T,
+    double L1,
+    double L2,
+    double L3
+);

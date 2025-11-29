@@ -229,6 +229,9 @@ ArmWithCup AddTripleLinkArmWithCup(
         cup,
         std::nullopt,
         RigidTransformd(
+            // drake::math::RotationMatrixd::MakeYRotation(
+            //     -M_PI / 2.0
+            // ),  // rotate mesh's +X -> +Z
             Eigen::Vector3d(
                 0,
                 0,
