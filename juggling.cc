@@ -211,9 +211,9 @@ int main() {
     
     double t_final = 20.0;
 
-    double dt = 0.02;
+    double dt = 0.01;
 
-    double torso_w = 7.0;
+    double torso_w = 8.0;
 
     ThreeLinkIKSolution rest1 = SimpleKinematicsSolution(
         Eigen::Vector2d(
@@ -480,6 +480,10 @@ int main() {
         torso_w,
         g
     );
+
+    std::cout << "Ball drop height: " << ball_drop_height << std::endl;
+
+    std::cout << "Catch time: " << catch_time << std::endl;
     
     // init ball as free body at drop position
     mbp.SetFreeBodyPose(
@@ -487,7 +491,7 @@ int main() {
         ball,
         RigidTransformd(
             Eigen::Vector3d(
-                cup_radius,  // x: aligned with cup
+                -cup_radius,  // x: aligned with cup
                 0.0,         // y: at y=0
                 ball_drop_height  // z: calculated drop height
             )
@@ -512,7 +516,7 @@ int main() {
     
     /* Throw state tracking */
 
-    double hold_time = 3.0; // time to hold ball in cup before throw
+    double hold_time = 2.0; // time to hold ball in cup before throw
 
     double throw_release_time = -1.0; // when to release ball (-1 = not scheduled)
 
@@ -614,24 +618,39 @@ int main() {
             active_arm == 1
         ) ? cup1_pos_W : cup2_pos_W;
         
-        double catch_tolerance = 0.05; // high, 5cm
+        double catch_tolerance = 0.02; // high
 
         bool ball_near_catch_cup = (
             ball_pos - catch_cup_pos
         ).head<2>().norm() < catch_tolerance;
 
-        bool ball_approaching = ball_velocity.z() <= 0; // downward velocity
-
-        std::cout << "Ball approaching: " << ball_velocity.z() << std::endl;
         
         /** Handle ball catches */
+        
+        // Check if cup is at y=0 (or close) for catching
+        bool cup_at_catch_position = std::abs(
+            catch_cup_pos.y()
+        ) < 0.1;
+        
+        // Debug: print catch conditions near catch_time
+        if (!ball_caught && t >= catch_time - 0.1 && t <= catch_time + 0.5) {
+            std::cout << "t=" << t << " catch_time=" << catch_time 
+                      << " cup_y=" << catch_cup_pos.y() 
+                      << " ball_z=" << ball_pos.z() 
+                      << " catch_z=" << (cup_z + ball_cup_offset_z)
+                      << " near=" << ball_near_catch_cup
+                      << " cup_at_pos=" << cup_at_catch_position << std::endl;
+        }
 
         if (!ball_caught && 
             t >= catch_time && 
-            ball_pos.z() <= cup_z + ball_cup_offset_z + 0.05 &&
-            ball_approaching &&
-            ball_near_catch_cup
+            // cup_at_catch_position && dont want this since not true beyond first catch
+            ball_pos.z() <= cup_z + ball_cup_offset_z + 0.15 &&
+            ball_pos.z() >= cup_z + ball_cup_offset_z - 0.2
+            // ball_near_catch_cup, something wrong with this?
         ) {
+
+            std::cout << "Ball caught at time" << t << std::endl;
             
             ball_caught = true;
             
@@ -680,7 +699,8 @@ int main() {
         
         /* Handle ball throws */
 
-        if (ball_caught && throw_release_time > 0 &&
+        if (ball_caught &&
+            throw_release_time > 0 &&
             t >= throw_release_time && 
             t < throw_release_time + dt
         ) {
@@ -803,11 +823,11 @@ int main() {
             t+dt
         );
 
-        std::this_thread::sleep_for(
-            std::chrono::milliseconds(
-                150
-            )
-        );
+        // std::this_thread::sleep_for(
+        //     std::chrono::milliseconds(
+        //         150
+        //     )
+        // );
 
     }
 

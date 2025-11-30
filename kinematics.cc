@@ -148,29 +148,16 @@ std::pair<double, double> CalculateDropHeightAndTime(
     double torso_w,
     const Eigen::Vector3d& g
 ) {
-    // Cup starts at angle 0 (at x = cup_radius, y = 0)
-    // We want cup to be at y = 0 when ball arrives
-    // Cup rotates: angle = torso_w * t
-    // Cup position: x = cup_radius * cos(angle), y = cup_radius * sin(angle)
-    // We want y = 0, so sin(angle) = 0, meaning angle = 0 or π
-    // At t=0, angle=0, so cup is already at y=0
-    // Next time: angle = π, so t = π / torso_w
-    
-    // But we want to drop now and catch when cup next reaches y=0
-    // If cup starts at (cup_radius, 0), it's already at y=0
-    // Next time it reaches y=0: when angle = 2pi, so t = 2pi / torso_w
-    // Or we can drop now and catch at next y=0: t_catch = 2pi / torso_w
-    
+    // catch next time reaches y = 0    
     double t_catch = 2.0 * M_PI / torso_w;
     
-    // Ball falls from height h, reaches cup_z at time t_catch
-    // cup_z = h - 0.5 * g.z() * t_catch^2
-    // h = cup_z + 0.5 * g.z() * t_catch^2
-    // (g.z() is negative, so this works out)
-    
+    // simple kinematics eq    
     double drop_height = cup_z - 0.5 * g.z() * t_catch * t_catch;
     
-    return {drop_height, t_catch};
+    return {
+        drop_height,
+        t_catch
+    };
 }
 
 /* Calculate throw velocity and flight time for ball to land back in same arm
