@@ -1,4 +1,5 @@
 #include "main.h"
+#include "consts.h"
 
 #include <Eigen/Core>
 
@@ -51,18 +52,12 @@ int main() {
 
     MultibodyPlant<double>& mbp = plant;
 
-    const double torso_height = 0.5;
-
-    const double torso_radius = 0.05;
-
-    const double torso_mass = 5.0;
-
     SpatialInertia<double> torso_inertia = SpatialInertia<double>::MakeFromCentralInertia(
-        torso_mass,
+        consts::torso_mass,
         Eigen::Vector3d::Zero(),
         UnitInertia<double>::SolidCylinder(
-            torso_radius,
-            torso_height,
+            consts::torso_radius,
+            consts::torso_height,
             Eigen::Vector3d::UnitZ()
         )
     );
@@ -78,12 +73,12 @@ int main() {
             Eigen::Vector3d(
                 0,
                 0,
-                torso_height / 2.0
+                consts::torso_height / 2.0
             )
         ),
         drake::geometry::Cylinder(
-            torso_radius, 
-            torso_height
+            consts::torso_radius, 
+            consts::torso_height
         ),
         "torso_visual",
         Eigen::Vector4d(
@@ -103,18 +98,7 @@ int main() {
         Eigen::Vector3d::UnitZ()
     );
 
-    const double link_length = 0.25;
-
-    const double link_radius = 0.03;
-
-    const double link_mass = 1.0;
-
     // cup position in cylindrical coordinates
-    const double cup_radius = 0.37; // radius from the center of the cup
-
-    const double cup_z = torso_height + 0.10; // height from the ground
-
-    const double ball_cup_offset_z = 0.10;
 
     ArmWithCup arm1 = AddTripleLinkArmWithCup(
         &mbp,
@@ -122,16 +106,16 @@ int main() {
         torso,
         RigidTransformd( // X_WShoulder (ground weld pos)
             Eigen::Vector3d(
-                torso_radius,
+                consts::torso_radius,
                 0.0,
-                torso_height
+                consts::torso_height
             )
         ),
-        link_length,
-        link_radius,
-        link_mass,
-        cup_radius,
-        cup_z
+        consts::link_length,
+        consts::link_radius,
+        consts::link_mass,
+        consts::cup_radius,
+        consts::cup_z
     );
 
     ArmWithCup arm2 = AddTripleLinkArmWithCup(
@@ -140,28 +124,25 @@ int main() {
         torso,
         RigidTransformd(
             Eigen::Vector3d(
-                -torso_radius,
+                -consts::torso_radius,
                 0.0,
-                torso_height
+                consts::torso_height
             )
         ),
-        link_length,
-        link_radius,
-        link_mass,
-        cup_radius,
-        cup_z
+        consts::link_length,
+        consts::link_radius,
+        consts::link_mass,
+        consts::cup_radius,
+        consts::cup_z
     );
 
     /* Ball settings: connected to world with planar joint */
-    const double ball_radius = 0.04;
-
-    const double ball_mass = 0.1;
 
     SpatialInertia<double> ball_inertia = SpatialInertia<double>::MakeFromCentralInertia(
-        ball_mass,
+        consts::ball_mass,
         Eigen::Vector3d::Zero(),
         UnitInertia<double>::SolidSphere(
-            ball_radius
+            consts::ball_radius
         )
     );
 
@@ -174,7 +155,7 @@ int main() {
         ball,
         RigidTransformd::Identity(),
         drake::geometry::Sphere(
-            ball_radius
+            consts::ball_radius
         ),
         "ball_visual",
         Eigen::Vector4d(
@@ -208,23 +189,17 @@ int main() {
     );
 
     /* Defining consts and setting desired angles */
-    
-    double t_final = 20.0;
-
-    double dt = 0.01;
-
-    double torso_w = 8.0;
 
     ThreeLinkIKSolution rest1 = SimpleKinematicsSolution(
         Eigen::Vector2d(
-            cup_radius, // from torso center
-            cup_z // from ground
+            consts::cup_radius, // from torso center
+            consts::cup_z // from ground
         ),
         M_PI / 2.0,
-        torso_height,
-        link_length,
-        link_length,
-        link_length
+        consts::torso_height,
+        consts::link_length,
+        consts::link_length,
+        consts::link_length
     );
     
     // ThreeLinkIKSolution rest2 = Solve3LinkIKWithOrientation(
@@ -248,7 +223,7 @@ int main() {
 
         std::cerr << "ERROR: IK solution failed for arm1!" << std::endl;
 
-        std::cerr << "  link_length = " << link_length << std::endl;
+        std::cerr << "  link_length = " << consts::link_length << std::endl;
 
         return 1;
 
@@ -258,7 +233,7 @@ int main() {
 
         std::cerr << "ERROR: IK solution failed for arm2!" << std::endl;
 
-        std::cerr << "  link_length = " << link_length << std::endl;
+        std::cerr << "  link_length = " << consts::link_length << std::endl;
 
         return 1;
 
@@ -368,11 +343,11 @@ int main() {
 
     Eigen::VectorXd Kp(m), Ki(m), Kd(m);
 
-    Kp.setConstant(40.0);
+    Kp.setConstant(consts::Kp);
 
-    Ki.setConstant(0.0);
+    Ki.setConstant(consts::Ki);
 
-    Kd.setConstant(2.0);
+    Kd.setConstant(consts::Kd);
 
     auto* pid = builder.AddSystem<PidController<double>>(
         Kp,
@@ -475,9 +450,9 @@ int main() {
     );
 
     auto [ball_drop_height, catch_time] = CalculateDropHeightAndTime(
-        cup_radius,
-        cup_z + ball_cup_offset_z,
-        torso_w,
+        consts::cup_radius,
+        consts::cup_z + consts::ball_cup_offset_z,
+        consts::torso_w,
         g
     );
 
@@ -491,7 +466,7 @@ int main() {
         ball,
         RigidTransformd(
             Eigen::Vector3d(
-                -cup_radius,  // x: aligned with cup
+                -consts::cup_radius,  // x: aligned with cup
                 0.0,         // y: at y=0
                 ball_drop_height  // z: calculated drop height
             )
@@ -516,15 +491,11 @@ int main() {
     
     /* Throw state tracking */
 
-    double hold_time = 2.0; // time to hold ball in cup before throw
-
     double throw_release_time = -1.0; // when to release ball (-1 = not scheduled)
 
     Eigen::Vector3d throw_velocity = Eigen::Vector3d::Zero();
 
     double throw_flight_time = 0.0;
-
-    int num_rotations = 1;  // num rotations before catch
 
     std::cout << "Simulator initialized" << std::endl;
     
@@ -567,9 +538,9 @@ int main() {
 
     // double release_time = throw_start + 0.9 * throw_duration;
 
-    base_yaw.set_angular_rate(
+        base_yaw.set_angular_rate(
         &plant_context,
-        torso_w  // constant rotation rate
+        consts::torso_w  // constant rotation rate
     );
 
     // Meschat connection delay
@@ -583,7 +554,7 @@ int main() {
 
     std::cout << "Starting simulation..." << std::endl;
 
-    for (double t = 0; t < t_final; t += dt) {
+    for (double t = 0; t < consts::t_final; t += consts::dt) {
 
         RigidTransformd ball_pose = mbp.GetFreeBodyPose(
             plant_context, 
@@ -618,7 +589,7 @@ int main() {
             active_arm == 1
         ) ? cup1_pos_W : cup2_pos_W;
         
-        double catch_tolerance = 0.02; // high
+        double catch_tolerance = consts::catch_tolerance; // high
 
         bool ball_near_catch_cup = (
             ball_pos - catch_cup_pos
@@ -637,7 +608,7 @@ int main() {
             std::cout << "t=" << t << " catch_time=" << catch_time 
                       << " cup_y=" << catch_cup_pos.y() 
                       << " ball_z=" << ball_pos.z() 
-                      << " catch_z=" << (cup_z + ball_cup_offset_z)
+                      << " catch_z=" << (consts::cup_z + consts::ball_cup_offset_z)
                       << " near=" << ball_near_catch_cup
                       << " cup_at_pos=" << cup_at_catch_position << std::endl;
         }
@@ -645,8 +616,8 @@ int main() {
         if (!ball_caught && 
             t >= catch_time && 
             // cup_at_catch_position && dont want this since not true beyond first catch
-            ball_pos.z() <= cup_z + ball_cup_offset_z + 0.15 &&
-            ball_pos.z() >= cup_z + ball_cup_offset_z - 0.2
+            ball_pos.z() <= consts::cup_z + consts::ball_cup_offset_z + 0.15 &&
+            ball_pos.z() >= consts::cup_z + consts::ball_cup_offset_z - 0.2
             // ball_near_catch_cup, something wrong with this?
         ) {
 
@@ -665,25 +636,25 @@ int main() {
                 catch_cup_pos.x()
             );
 
-            double angle_at_release = angle_at_catch + torso_w * hold_time;
+            double angle_at_release = angle_at_catch + consts::torso_w * consts::hold_time;
 
             Eigen::Vector3d release_pos(
-                cup_radius * std::cos(
+                consts::cup_radius * std::cos(
                     angle_at_release
                 ),
-                cup_radius * std::sin(
+                consts::cup_radius * std::sin(
                     angle_at_release
                 ),
-                cup_z + ball_cup_offset_z
+                consts::cup_z + consts::ball_cup_offset_z
             );
             
             auto [throw_vel, flight_t] = CalculateThrowVelocityAndTime(
                 release_pos,
                 angle_at_release,
-                cup_z + ball_cup_offset_z, // target catch height, mihgt be different from release height later
-                cup_radius,
-                torso_w,
-                num_rotations,
+                consts::cup_z + consts::ball_cup_offset_z, // target catch height, mihgt be different from release height later
+                consts::cup_radius,
+                consts::torso_w,
+                consts::num_rotations,
                 g
             );
             
@@ -691,7 +662,7 @@ int main() {
 
             throw_flight_time = flight_t;
 
-            throw_release_time = t + hold_time; // hold ball in cup for 1 second before throw
+            throw_release_time = t + consts::hold_time; // hold ball in cup before throw
             
             std::cout << "Ball caught by arm" << active_arm << " at t=" << t << ". Throw scheduled: release at t=" 
                       << throw_release_time << ", flight_time=" << flight_t << "s" << std::endl;
@@ -702,7 +673,7 @@ int main() {
         if (ball_caught &&
             throw_release_time > 0 &&
             t >= throw_release_time && 
-            t < throw_release_time + dt
+            t < throw_release_time + consts::dt
         ) {
             // release ball with throw velocity from active arm
             Eigen::Vector3d release_cup_pos = (
@@ -711,7 +682,7 @@ int main() {
 
             Eigen::Vector3d release_pos = release_cup_pos;
 
-            release_pos.z() += ball_cup_offset_z;
+            release_pos.z() += consts::ball_cup_offset_z;
             
             mbp.SetFreeBodyPose(
                 &plant_context,
@@ -760,7 +731,7 @@ int main() {
             
             Eigen::Vector3d ball_in_cup_pos = current_cup_pos;
 
-            ball_in_cup_pos.z() = current_cup_pos.z() + ball_cup_offset_z;
+            ball_in_cup_pos.z() = current_cup_pos.z() + consts::ball_cup_offset_z;
             
             mbp.SetFreeBodyPose(
                 &plant_context,
@@ -820,7 +791,7 @@ int main() {
         }
 
         simulator.AdvanceTo(
-            t+dt
+            t+consts::dt
         );
 
         // std::this_thread::sleep_for(
