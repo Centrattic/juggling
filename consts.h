@@ -6,7 +6,7 @@ namespace consts {
     constexpr double torso_height = 0.5;
     constexpr double torso_radius = 0.05;
     constexpr double torso_mass = 5.0;
-    constexpr double torso_w = 8.0;
+    constexpr double torso_w = 15.0;
 
     // links for arms
     constexpr double link_length = 0.25;
@@ -19,6 +19,7 @@ namespace consts {
     constexpr double ball_cup_offset_z = 0.10;
 
     // objects
+    constexpr double num_balls = 2; // eventually add a num arms = num_balls
     constexpr double ball_radius = 0.04;
     constexpr double ball_mass = 0.1;
 
@@ -29,7 +30,7 @@ namespace consts {
     // juggling
     constexpr double hold_time = 2.0; // time to hold ball in cup before throw
     constexpr double catch_tolerance = 0.02; // high
-    constexpr int num_rotations = 1;  // num rotations before catch
+    constexpr int num_rotations = 3;  // num rotations before catch
 
     // PID gains
     constexpr double Kp = 40.0;

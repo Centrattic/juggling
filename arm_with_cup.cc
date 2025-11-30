@@ -1,8 +1,11 @@
 #include "main.h"
 
+#include "consts.h"
 #include <drake/geometry/shape_specification.h>
 #include <drake/multibody/tree/revolute_joint.h>
 #include <drake/multibody/tree/weld_joint.h>
+#include <drake/multibody/tree/spatial_inertia.h>
+#include <drake/multibody/math/spatial_velocity.h>
 #include <drake/multibody/tree/unit_inertia.h>
 #include <drake/multibody/plant/coulomb_friction.h>
 #include <drake/math/rotation_matrix.h>
@@ -19,6 +22,41 @@ using drake::geometry::Mesh;
 using drake::multibody::MultibodyPlant;
 using drake::multibody::WeldJoint;
 using drake::multibody::CoulombFriction;
+
+const drake::multibody::RigidBody<double>* BuildBall(
+    MultibodyPlant<double>* mbp
+) {
+    SpatialInertia<double> ball_inertia = SpatialInertia<double>::MakeFromCentralInertia(
+        consts::ball_mass,
+        Eigen::Vector3d::Zero(),
+        UnitInertia<double>::SolidSphere(
+            consts::ball_radius
+        )
+    );
+
+    auto& ball = mbp->AddRigidBody(
+        "ball",
+        ball_inertia
+    );
+
+    mbp->RegisterVisualGeometry(
+        ball,
+        RigidTransformd::Identity(),
+        drake::geometry::Sphere(
+            consts::ball_radius
+        ),
+        "ball_visual",
+        Eigen::Vector4d(
+            1.0,
+            0.0,
+            0.0,
+            1.0
+        )
+    );
+    
+    return &ball;
+
+}
 
 ArmWithCup AddTripleLinkArmWithCup(
     MultibodyPlant<double>* mbp,

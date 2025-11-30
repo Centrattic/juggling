@@ -39,6 +39,7 @@ using drake::multibody::WeldJoint;
 using drake::systems::DiagramBuilder;
 using drake::systems::controllers::PidController;
 using drake::systems::MatrixGain;
+using drake::multibody::RigidBody;
 
 //  Note: Run ./build/juggling_demo from the /home/juggling folder
 
@@ -136,47 +137,17 @@ int main() {
         consts::cup_z
     );
 
-    /* Ball settings: connected to world with planar joint */
-
-    SpatialInertia<double> ball_inertia = SpatialInertia<double>::MakeFromCentralInertia(
-        consts::ball_mass,
-        Eigen::Vector3d::Zero(),
-        UnitInertia<double>::SolidSphere(
-            consts::ball_radius
-        )
+    auto* ball_body = BuildBall(
+        &mbp
     );
 
-    auto& ball = mbp.AddRigidBody(
-        "ball",
-        ball_inertia
-    );
-
-    mbp.RegisterVisualGeometry(
-        ball,
-        RigidTransformd::Identity(),
-        drake::geometry::Sphere(
-            consts::ball_radius
-        ),
-        "ball_visual",
-        Eigen::Vector4d(
-            1.0,
-            0.0,
-            0.0,
-            1.0
-        )
-    );
+    // RigidBody<double>* ball_body = ball.ball;
 
     // mbp.mutable_gravity_field().set_gravity_vector(
     //     Eigen::Vector3d::Zero()
     // );
 
-    // optimize collision so it's possibly a bit faster?
-    // mbp.set_contact_model(
-    //     drake::multibody::ContactModel::kPoint
-    // );
-
     mbp.Finalize();
-
 
     /* Visualizing in meschat */
 
@@ -202,16 +173,6 @@ int main() {
         consts::link_length
     );
     
-    // ThreeLinkIKSolution rest2 = Solve3LinkIKWithOrientation(
-    //     cup2_pos_desired,
-    //     cup2_direction_up, // also face upward
-    //     0.0,
-    //     shoulder2_T,
-    //     link_length,
-    //     link_length,
-    //     link_length
-    // );
-
     ThreeLinkIKSolution rest2 = ThreeLinkIKSolution(
         true,
         -rest1.shoulder,
@@ -461,33 +422,21 @@ int main() {
     std::cout << "Catch time: " << catch_time << std::endl;
     
     // init ball as free body at drop position
-    mbp.SetFreeBodyPose(
+
+    BallThrowState ball_state = MaintainBallState(
+        &mbp,
+        ball_body,
         &plant_context,
-        ball,
-        RigidTransformd(
-            Eigen::Vector3d(
-                -consts::cup_radius,  // x: aligned with cup
-                0.0,         // y: at y=0
-                ball_drop_height  // z: calculated drop height
-            )
-        )
-    );
-    
-    mbp.SetFreeBodySpatialVelocity(
-        &plant_context,
-        ball,
-        SpatialVelocity<double>(
-            Eigen::Vector3d::Zero(),
-            Eigen::Vector3d::Zero() 
-        )
+        ball_drop_height,
+        1 // active arm
     );
     
     // Ball state tracking
-    double ball_drop_time = 0.0;
+    double ball_drop_time = ball_state.ball_drop_time;
 
-    bool ball_caught = false;
+    bool ball_caught = ball_state.ball_caught;
 
-    int active_arm = 1; // 1 or 2, eventually both
+    int active_arm = ball_state.active_arm;
     
     /* Throw state tracking */
 
@@ -526,18 +475,6 @@ int main() {
     simulator.set_target_realtime_rate(
         1.0
     );
-
-    /* throw details */
-    // double throw_start = 1.0;
-
-    // double throw_duration = 0.4;
-
-    // double throw_amp = 0.8;
-
-    // bool ball_released = false;
-
-    // double release_time = throw_start + 0.9 * throw_duration;
-
         base_yaw.set_angular_rate(
         &plant_context,
         consts::torso_w  // constant rotation rate
@@ -558,12 +495,12 @@ int main() {
 
         RigidTransformd ball_pose = mbp.GetFreeBodyPose(
             plant_context, 
-            ball
+            *ball_body
         );
 
         SpatialVelocity<double> ball_spatial_vel = mbp.EvalBodySpatialVelocityInWorld(
             plant_context, 
-            ball
+            *ball_body
         );
         
         Eigen::Vector3d ball_pos = ball_pose.translation();
@@ -686,7 +623,7 @@ int main() {
             
             mbp.SetFreeBodyPose(
                 &plant_context,
-                ball,
+                *ball_body, // deref from method
                 RigidTransformd(
                     release_pos
                 )
@@ -694,7 +631,7 @@ int main() {
             
             mbp.SetFreeBodySpatialVelocity(
                 &plant_context,
-                ball,
+                *ball_body,
                 SpatialVelocity<double>(
                     Eigen::Vector3d::Zero(), // angular vel
                     throw_velocity // translational vel
@@ -735,13 +672,13 @@ int main() {
             
             mbp.SetFreeBodyPose(
                 &plant_context,
-                ball,
+                *ball_body,
                 RigidTransformd(ball_in_cup_pos)
             );
             
             mbp.SetFreeBodySpatialVelocity(
                 &plant_context,
-                ball,
+                *ball_body,
                 cup_velocity
             );
         }        

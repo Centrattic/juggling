@@ -1,4 +1,5 @@
 #include "main.h"
+#include "consts.h"
 #include <Eigen/Core>
 #include <cmath>
 #include <iostream>
@@ -8,10 +9,17 @@
 #include <drake/multibody/plant/multibody_plant.h>
 #include <drake/multibody/inverse_kinematics/inverse_kinematics.h>
 #include <drake/multibody/tree/rigid_body.h>
+#include <drake/multibody/math/spatial_velocity.h>
+#include <drake/systems/framework/context.h>
 #include <drake/solvers/solve.h>
+#include <drake/math/rigid_transform.h>
+
 
 using drake::multibody::MultibodyPlant;
 using drake::multibody::RigidBody;
+using drake::multibody::SpatialVelocity;
+using drake::systems::Context;
+using drake::math::RigidTransformd;
 
 // To Do: create consts .cc file
 
@@ -49,38 +57,40 @@ Eigen::Vector3d ComputeThrowVelocity(
     return (p_c - p_r - 0.5 * g * dt * dt) / dt;
 }
 
-Eigen::Vector3d CupTorsoTarget(
-    double t,
-    const Eigen::Vector3d& shoulder_T,
-    double link_length,
-    double h_mid_offset,
-    double h_amp,
-    double period,
-    double arm_phase
+BallThrowState MaintainBallState(
+    MultibodyPlant<double>* mbp,
+    const RigidBody<double>* ball_body,
+    Context<double>* plant_context,
+    double ball_drop_height,
+    int active_arm
 ) {
-
-    Eigen::Vector3d base_dir = Eigen::Vector3d(
-        (shoulder_T.x() >= 0.0 ? 1.0 : -1.0),
-        0.0,
-        0.0
-    );
-
-    double r = 1.2 * link_length;
-
-    double omega = 2.0 * M_PI / period;
-
-    double h = h_mid_offset + h_amp * std::sin(
-        omega * t + arm_phase
-    );
-
-    Eigen::Vector3d target_T = shoulder_T;
-
-    target_T += r* base_dir;
     
-    target_T.z() = shoulder_T.z() + h;
+    mbp->SetFreeBodyPose(
+        plant_context,
+        *ball_body, // need to extract reference
+        RigidTransformd(
+            Eigen::Vector3d(
+                -consts::cup_radius,  // x: aligned with cup
+                0.0,         // y: at y=0
+                ball_drop_height  // z: calculated drop height
+            )
+        )
+    );
 
-    return target_T;
+    mbp->SetFreeBodySpatialVelocity(
+        plant_context,
+        *ball_body,
+        SpatialVelocity<double>(
+            Eigen::Vector3d::Zero(),
+            Eigen::Vector3d::Zero() 
+        )
+    );
 
+    return BallThrowState{
+        ball_body,
+        0.9,
+        false
+    };
 }
 
 ThreeLinkIKSolution SimpleKinematicsSolution(

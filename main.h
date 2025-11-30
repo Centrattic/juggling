@@ -6,12 +6,32 @@
 #include <drake/multibody/plant/multibody_plant.h>
 #include <drake/multibody/tree/revolute_joint.h>
 #include <drake/multibody/tree/rigid_body.h>
+#include <drake/systems/framework/context.h>
 #include <Eigen/Core>
 
 struct JointTarget {
     std::string name;
     double angle;
 };
+
+struct BallThrowState {
+    const drake::multibody::RigidBody<double>* ball;
+    double ball_drop_time;
+    bool ball_caught;
+    int active_arm;
+};
+
+BallThrowState MaintainBallState(
+    drake::multibody::MultibodyPlant<double>* mbp,
+    const drake::multibody::RigidBody<double>* ball_body,
+    drake::systems::Context<double>* plant_context,
+    double ball_drop_height,
+    int active_arm
+);
+
+const drake::multibody::RigidBody<double>* BuildBall(
+    drake::multibody::MultibodyPlant<double>* mbp
+);
 
 struct ArmWithCup {
     const drake::multibody::RevoluteJoint<double>* shoulder;
@@ -55,45 +75,12 @@ Eigen::Vector3d ComputeThrowVelocity(
     const Eigen::Vector3d& g
 );
 
-Eigen::Vector3d CupTorsoTarget(
-    double t,
-    const Eigen::Vector3d& shoulder_T,
-    double link_length,
-    double h_mid_offset,
-    double h_amp,
-    double period,
-    double arm_phase
-);
-
-struct TwoLinkIKSolution {
-    bool success{};
-    double shoulder{};
-    double elbow{};
-};
-
 struct ThreeLinkIKSolution {
     bool success{};
     double shoulder{};
     double elbow{};
     double wrist{};
 };
-
-TwoLinkIKSolution Solve2LinkIK(
-    const Eigen::Vector3d& p_W,
-    double theta_torso,
-    const Eigen::Vector3d& shoulder_T,
-    double L1,
-    double L2
-);
-
-TwoLinkIKSolution Solve2LinkIKWithOrientation(
-    const Eigen::Vector3d& cup_pos_W,
-    const Eigen::Vector3d& cup_direction_W, // Desired cup orientation
-    double theta_torso,
-    const Eigen::Vector3d& shoulder_T,
-    double L1,
-    double L2
-);
 
 ThreeLinkIKSolution Solve3LinkIKWithOrientation(
     const Eigen::Vector3d& cup_pos_W,
