@@ -172,3 +172,64 @@ std::pair<double, double> CalculateDropHeightAndTime(
     
     return {drop_height, t_catch};
 }
+
+/* Calculate throw velocity and flight time for ball to land back in same arm
+After n rotations, the cup is back at the same position (y=0)
+throw_velocity is the initial velocity needed (in world frame)
+Returns: {throw_velocity, flight_time} */
+
+std::pair<Eigen::Vector3d, double> CalculateThrowVelocityAndTime(
+    const Eigen::Vector3d& release_pos, // ball release pos
+    double angle_at_release,
+    double target_z, // target catch height
+    double cup_radius, // radius of cup from torso center
+    double torso_w,
+    int num_rotations, // num rots before catch
+    const Eigen::Vector3d& g
+) {
+    // flight time: cup needs to rotate num_rotations * 2pi, +pi for horizontal displacement
+    double flight_time = (2.0 * M_PI * num_rotations + M_PI) / torso_w;
+    
+    // Ball needs to go up and come back down to target_z in flight_time
+    // Using: target_z = release_pos.z + v0.z * t + 0.5 * g.z * t^2
+    // Solving for v0.z: v0.z = (target_z - release_pos.z - 0.5 * g.z * t^2) / t
+    // Since target_z = release_pos.z (same height), this simplifies to:
+    double v0_z = -0.5 * g.z() * flight_time;
+    
+    // Horizontal velocity: ball needs to travel from +cup_radius to -cup_radius
+    // Horizontal distance = 2 * cup_radius (from +x to -x)
+    // v0.x = (target_x - release_x) / t = (-cup_radius - cup_radius) / t = -2 * cup_radius / t
+    // release_pos.x() should be ±cup_radius when cup is at y=0
+    // Direction: if throwing from +cup_radius, go to -cup_radius (negative velocity)
+
+    // Calculate catch position (π radians from release)
+    double catch_angle = angle_at_release + M_PI;
+
+    Eigen::Vector3d catch_pos(
+        cup_radius * std::cos(
+            catch_angle
+        ),
+        cup_radius * std::sin(
+            catch_angle
+        ),
+        target_z
+    );
+
+    // Calculate horizontal displacement
+    Eigen::Vector2d horizontal_displacement = (
+        catch_pos - release_pos
+    ).head<2>();
+
+    Eigen::Vector2d v0_xy = horizontal_displacement / flight_time;
+
+    Eigen::Vector3d throw_velocity(
+        v0_xy.x(),
+        v0_xy.y(), // there is y-component since released at non y=0 position
+        v0_z
+    );
+    
+    return {
+        throw_velocity,
+        flight_time
+    };
+}
