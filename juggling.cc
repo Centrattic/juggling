@@ -349,7 +349,7 @@ int main() {
         pid->get_input_port_estimated_state()
     );
 
-     builder.Connect(
+    builder.Connect(
         pid->get_output_port_control(),
         mbp.get_actuation_input_port()
     );
@@ -376,35 +376,28 @@ int main() {
     
     std::cout << "Got contexts, about to set joint angles BEFORE Initialize()" << std::endl;
 
+    /* set joint angles and ang vel */
+
     for (int j = 0; j < m; ++j) {
 
         const auto& jt = targets[j];
-
-        try {
             
-            const auto& joint = mbp.GetJointByName<RevoluteJoint>(
-                jt.name
-            );
+        const auto& joint = mbp.GetJointByName<RevoluteJoint>(
+            jt.name
+        );
 
-            std::cout << "Setting joint " << jt.name << " to angle " << jt.angle << std::endl;
+        std::cout << "Setting joint " << jt.name << " to angle " << jt.angle << std::endl;
 
-            joint.set_angle( // initial value
-                &plant_context,
-                jt.angle
-            );
+        joint.set_angle( // initial value
+            &plant_context,
+            jt.angle
+        );
 
-            joint.set_angular_rate(
-                &plant_context,
-                0.0
-            );
+        joint.set_angular_rate(
+            &plant_context,
+            0.0
+        );
 
-        } catch (const std::exception& e) {
-
-            std::cerr << "ERROR: Failed to set joint " << jt.name << ": " << e.what() << std::endl;
-
-            return 1;
-
-        }
     }
     
     auto& diagram_context = simulator.get_mutable_context();
@@ -638,7 +631,8 @@ int main() {
                 t >= ball_state.throw_release_time && 
                 t < ball_state.throw_release_time + consts::dt
             ) {
-                // Calculate throw velocity on-the-fly
+                // could cache all vels ig?
+                
                 Eigen::Vector3d release_cup_pos = cup_positions[
                     arm_idx
                 ];
@@ -664,6 +658,124 @@ int main() {
                 );
                 
                 ball_state.throw_velocity = throw_vel;
+
+                /* set arm joint angles */
+
+                // solve IK, can cache once for per arm for performance if needed
+                // if dont have to cache, could add more variety to the motion
+                double new_x = consts::cup_radius * std::cos( // not sure why this isn't same as release_cup_pos.x()
+                    angle_at_release
+                ) + throw_vel.x() * consts::throw_motion_delta;
+
+                double new_y = consts::cup_radius * std::sin(
+                    angle_at_release
+                ) + throw_vel.y() * consts::throw_motion_delta;
+
+                double new_z = consts::cup_z + throw_vel.z() * consts::throw_motion_delta;
+
+                double new_radius = std::sqrt(
+                    new_x * new_x + new_y * new_y
+                );
+
+                std::cout << "New radius: " << new_radius << ", new z: " << new_z << std::endl;
+
+                ThreeLinkIKSolution throw_solution = SimpleKinematicsSolution(
+                    Eigen::Vector2d(
+                        new_radius,
+                        new_z
+                    ),
+                    M_PI / 2.0, // PROBABLY SHOULD UPDATE??
+                    consts::torso_height,
+                    consts::link_length,
+                    consts::link_length,
+                    consts::link_length
+                );
+
+                if (!throw_solution.success) {
+
+                    std::cerr << "ERROR: IK solution failed!" << std::endl;
+
+                    return 1;
+
+                }
+                
+                // Validate IK solution values
+                if (std::isnan(throw_solution.shoulder) || std::isnan(throw_solution.elbow) || 
+                    std::isnan(throw_solution.wrist) ||
+                    std::isinf(throw_solution.shoulder) || std::isinf(throw_solution.elbow) || 
+                    std::isinf(throw_solution.wrist)) {
+                    std::cerr << "ERROR: IK solution contains NaN/Inf values!" << std::endl;
+                    std::cerr << "  shoulder=" << throw_solution.shoulder 
+                              << ", elbow=" << throw_solution.elbow 
+                              << ", wrist=" << throw_solution.wrist << std::endl;
+                    return 1;
+                }
+
+                for (int j = 3*ball_idx; j < 3*(ball_idx+1); ++j) {
+
+                    const auto& jt = targets[j];
+
+                    double joint_throw_angle = 0.0; 
+
+                    try {
+                        
+                        const auto& joint = mbp.GetJointByName<RevoluteJoint>(
+                            jt.name
+                        );
+            
+                        if (jt.name.find("shoulder") != std::string::npos) {
+            
+                            joint_throw_angle = throw_solution.shoulder;
+
+                        } else if (jt.name.find("elbow") != std::string::npos) {
+
+                            joint_throw_angle = throw_solution.elbow;
+
+                        } else if (jt.name.find("wrist") != std::string::npos) {
+
+                            joint_throw_angle = throw_solution.wrist;
+
+                        } else {
+
+                            std::cerr << "ERROR: Joint name " << jt.name << " doesn't match expected pattern!" << std::endl;
+                            
+                            return 1;
+                        }
+
+                        // check for invalid values
+                        if (std::isnan(joint_throw_angle) || std::isinf(joint_throw_angle)) {
+
+                            std::cerr << "ERROR: Invalid joint angle (NaN/Inf) for " << jt.name 
+                                      << ": " << joint_throw_angle << std::endl;
+
+                            return 1;
+                        }
+
+                        std::cout << "Setting joint " << jt.name << " to angle " << joint_throw_angle << std::endl;
+
+                        joint.set_angle( // if you dont update state, then will look like a flick, which we kind of want
+                            &plant_context,
+                            joint_throw_angle
+                        );
+                        
+                        // if you want to update desired state for PID controller
+                        // x_des[j] = joint_throw_angle;
+                        // x_des[m + j] = 0.0; // desired velocity is always 0
+                        
+                    } catch (const std::exception& e) {
+            
+                        std::cerr << "ERROR: Failed to set joint " << jt.name << ": " << e.what() << std::endl;
+            
+                        return 1;
+            
+                    }
+                }
+                
+                // also updating desired state for PID controller
+                // diagram->get_input_port(desired_state_port_index).FixValue(
+                //     &diagram_context,
+                //     x_des
+                // );
 
                 ball_state.throw_flight_time = flight_t;
                 

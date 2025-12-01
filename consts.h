@@ -3,7 +3,7 @@
 namespace consts {
 
     // torso
-    constexpr double torso_height = 0.5;
+    constexpr double torso_height = 0.65;
     constexpr double torso_radius = 0.06;
     constexpr double torso_mass = 5.0;
     constexpr double torso_w = 7.0;
@@ -31,6 +31,7 @@ namespace consts {
     constexpr double hold_time = 2.0; // time to hold ball in cup before throw
     constexpr double catch_tolerance = 0.02; // high
     constexpr int num_rotations = 1;  // num rotations before catch
+    constexpr double throw_motion_delta = 0.005; // time to move arm for throw motion, < hold_time/2
 
     // flight time is around 1.198s (calculated from: (2pi * num_rotations + 2pi/num_arms) / torso_w)
     // we want to space so balls overlap in air
