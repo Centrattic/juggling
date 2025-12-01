@@ -158,9 +158,28 @@ int main() {
         );
     }
 
-    auto* ball_body = BuildBall(
-        &mbp
+    // vector of ball objects
+    std::vector<const drake::multibody::RigidBody<double>*> ball_bodies;
+
+    ball_bodies.reserve(
+        consts::num_arms
     );
+    
+    for (int i = 0; i < consts::num_arms; ++i) {
+
+        std::string ball_name = "ball" + std::to_string(
+            i + 1
+        );
+
+        auto* ball_body = BuildBall(
+            &mbp,
+            ball_name
+        );
+
+        ball_bodies.push_back(
+            ball_body
+        );
+    }
 
     // RigidBody<double>* ball_body = ball.ball;
 
@@ -396,50 +415,68 @@ int main() {
     
     simulator.Initialize();
 
-    // init ball in cup
-    int active_arm = 1; // arm 1 (index 0)
-    
-    RigidTransformd cup_pose = mbp.EvalBodyPoseInWorld(
-        plant_context,
-        *arms[active_arm - 1].cup_body
+    std::vector<BallState> ball_states;
+
+    ball_states.reserve(
+        consts::num_arms
     );
     
-    SpatialVelocity<double> cup_velocity = mbp.EvalBodySpatialVelocityInWorld(
-        plant_context,
-        *arms[active_arm - 1].cup_body
-    );
-    
-    Eigen::Vector3d cup_pos = cup_pose.translation();
+    for (int i = 0; i < consts::num_arms; ++i) {
+        
+        RigidTransformd cup_pose = mbp.EvalBodyPoseInWorld(
+            plant_context,
+            *arms[i].cup_body
+        );
+        
+        SpatialVelocity<double> cup_velocity = mbp.EvalBodySpatialVelocityInWorld(
+            plant_context,
+            *arms[i].cup_body
+        );
+        
+        Eigen::Vector3d cup_pos = cup_pose.translation();
 
-    Eigen::Vector3d ball_in_cup_pos = cup_pos;
+        Eigen::Vector3d ball_in_cup_pos = cup_pos;
 
-    ball_in_cup_pos.z() += consts::ball_cup_offset_z;
-    
-    mbp.SetFreeBodyPose(
-        &plant_context,
-        *ball_body,
-        RigidTransformd(ball_in_cup_pos)
-    );
-    
-    mbp.SetFreeBodySpatialVelocity(
-        &plant_context,
-        *ball_body,
-        cup_velocity
-    );
-    
-    // Ball state tracking
-    bool ball_caught = true; // cuz ball starts in cup
-    
-    double catch_time = 1e6; // initialized to large value, will be set after first throw
+        ball_in_cup_pos.z() += consts::ball_cup_offset_z;
+        
+        // set ball position and velocity to match cup
+        mbp.SetFreeBodyPose(
+            &plant_context,
+            *ball_bodies[i],
+            RigidTransformd(
+                ball_in_cup_pos
+            )
+        );
+        
+        mbp.SetFreeBodySpatialVelocity(
+            &plant_context,
+            *ball_bodies[i],
+            cup_velocity
+        );
+        
+        // Initialize ball state
+        BallState ball_state;
 
-    std::cout << "Active arm: " << active_arm << std::endl;
-    
-    /* Throw state tracking */
-    double throw_release_time = consts::hold_time;
+        ball_state.ball_body = ball_bodies[i];
 
-    Eigen::Vector3d throw_velocity = Eigen::Vector3d::Zero();
+        ball_state.arm_index = i;  // change to being 0-indexed
 
-    double throw_flight_time = 0.0;
+        ball_state.ball_caught = true;  // ball starts in cup
+
+        ball_state.catch_time = 1e6;  // initialized to large value, will be set after first throw
+
+        ball_state.throw_release_time = consts::hold_time;  // first throw after hold_time
+
+        ball_state.throw_velocity = Eigen::Vector3d::Zero();
+
+        ball_state.throw_flight_time = 0.0;
+        
+        ball_states.push_back(
+            ball_state
+        );
+        
+        std::cout << "Ball " << (i + 1) << " initialized in arm " << (i + 1) << std::endl;
+    }
 
     std::cout << "Simulator initialized" << std::endl;
     
@@ -496,21 +533,6 @@ int main() {
 
     for (double t = 0; t < consts::t_final; t += consts::dt) {
 
-        RigidTransformd ball_pose = mbp.GetFreeBodyPose(
-            plant_context, 
-            *ball_body
-        );
-
-        SpatialVelocity<double> ball_spatial_vel = mbp.EvalBodySpatialVelocityInWorld(
-            plant_context, 
-            *ball_body
-        );
-        
-        Eigen::Vector3d ball_pos = ball_pose.translation();
-
-        Eigen::Vector3d ball_velocity = ball_spatial_vel.translational();
-        
-        
         std::vector<Eigen::Vector3d> cup_positions;
 
         cup_positions.reserve(
@@ -529,154 +551,146 @@ int main() {
             );
         }
         
-        // key: same arm catches, it rotates to catch pos
-        // arm (??) segfault check
-        if (active_arm < 1 || active_arm > consts::num_arms) {
+        // loop over each ball
+        for (int ball_idx = 0; ball_idx < consts::num_arms; ++ball_idx) {
 
-            std::cerr << "ERROR: active_arm=" << active_arm << " is out of range [1, " << consts::num_arms << "]" << std::endl;
-            return 1;
-        }
+            BallState& ball_state = ball_states[ball_idx];
 
-        Eigen::Vector3d catch_cup_pos = cup_positions[active_arm - 1];
-        
-        double catch_tolerance = consts::catch_tolerance; // high
-
-        bool ball_near_catch_cup = (
-            ball_pos - catch_cup_pos
-        ).head<2>().norm() < catch_tolerance;
-
-        
-        /** Handle ball catches */
-        
-        // Check if cup is at y=0 (or close) for catching
-        bool cup_at_catch_position = std::abs(
-            catch_cup_pos.y()
-        ) < 0.1;
-        
-        // DEBUG: print catch conditions near catch_time
-        if (!ball_caught && 
-            t >= catch_time - 0.1 && 
-            t <= catch_time + 0.5) {
-            std::cout << "t=" << t << " catch_time=" << catch_time 
-                      << " cup_y=" << catch_cup_pos.y() 
-                      << " ball_z=" << ball_pos.z() 
-                      << " catch_z=" << (consts::cup_z + consts::ball_cup_offset_z)
-                      << " near=" << ball_near_catch_cup
-                      << " cup_at_pos=" << cup_at_catch_position << std::endl;
-        }
-
-        if (!ball_caught && 
-            t >= catch_time && 
-            // cup_at_catch_position && dont want this since not true beyond first catch
-            ball_pos.z() <= consts::cup_z + consts::ball_cup_offset_z + 0.15 &&
-            ball_pos.z() >= consts::cup_z + consts::ball_cup_offset_z - 0.2
-            // ball_near_catch_cup, something wrong with this?
-        ) {
-
-            std::cout << "Ball caught at time" << t << std::endl;
+            int arm_idx = ball_state.arm_index;
             
-            ball_caught = true;
-            
-            throw_release_time = t + consts::hold_time; // hold ball in cup before throw
-            
-            std::cout << "Ball caught by arm" << active_arm << " at t=" << t << ". Throw scheduled: release at t=" 
-                      << throw_release_time << std::endl;
-        }
-        
-        /* Handle ball throws */
-
-        if (ball_caught &&
-            throw_release_time > 0 &&
-            t >= throw_release_time && 
-            t < throw_release_time + consts::dt
-        ) {
-            // release ball with throw velocity from active arm
-            Eigen::Vector3d release_cup_pos = cup_positions[active_arm - 1];
-
-            Eigen::Vector3d release_pos = release_cup_pos;
-            
-            release_pos.z() += consts::ball_cup_offset_z;
-            
-            double angle_at_release = std::atan2(
-                release_cup_pos.y(), 
-                release_cup_pos.x()
+            RigidTransformd ball_pose = mbp.GetFreeBodyPose(
+                plant_context, 
+                *ball_state.ball_body
             );
             
-            auto [throw_vel, flight_t] = CalculateThrowVelocityAndTime(
-                release_pos,
-                angle_at_release,
-                consts::cup_z + consts::ball_cup_offset_z,
-                consts::cup_radius,
-                consts::torso_w,
-                consts::num_rotations,
-                consts::num_arms,
-                g
+            SpatialVelocity<double> ball_spatial_vel = mbp.EvalBodySpatialVelocityInWorld(
+                plant_context, 
+                *ball_state.ball_body
             );
             
-            throw_velocity = throw_vel;
+            Eigen::Vector3d ball_pos = ball_pose.translation();
 
-            throw_flight_time = flight_t;
+            Eigen::Vector3d ball_velocity = ball_spatial_vel.translational();
             
-            mbp.SetFreeBodyPose(
-                &plant_context,
-                *ball_body,
-                RigidTransformd(
-                    release_pos
-                )
-            );
+            // key: same arm catches its own ball
+            Eigen::Vector3d catch_cup_pos = cup_positions[arm_idx];
             
-            mbp.SetFreeBodySpatialVelocity(
-                &plant_context,
-                *ball_body,
-                SpatialVelocity<double>(
-                    Eigen::Vector3d::Zero(), // angular vel
-                    throw_velocity // translational vel
-                )
-            );
+            /** Handle ball catches */
             
-            ball_caught = false;
+            if (!ball_state.ball_caught && 
+                t >= ball_state.catch_time && 
+                ball_pos.z() <= consts::cup_z + consts::ball_cup_offset_z + 0.15 &&
+                ball_pos.z() >= consts::cup_z + consts::ball_cup_offset_z - 0.2
+            ) {
+                std::cout << "Ball " << (ball_idx + 1) << " caught at time " << t << std::endl;
+                
+                ball_state.ball_caught = true;
 
-            catch_time = throw_release_time + throw_flight_time; // next catch time
+                ball_state.throw_release_time = t + consts::hold_time;
+                
+                std::cout << "Ball " << (ball_idx + 1) << " caught by arm " << (arm_idx + 1) 
+                          << " at t=" << t << ". Throw scheduled: release at t=" 
+                          << ball_state.throw_release_time << std::endl;
+            }
             
-            std::cout << "Ball released at t=" << t << " with velocity (" 
-                      << throw_velocity.x() << ", " << throw_velocity.y() << ", " << throw_velocity.z() << ")" << std::endl;
+            /** Handle ball throws */
             
-            std::cout << "Next catch scheduled at t=" << catch_time << std::endl;
-        }
-        
-        /* Handle ball holds in cup */
+            if (ball_state.ball_caught &&
+                ball_state.throw_release_time > 0 &&
+                t >= ball_state.throw_release_time && 
+                t < ball_state.throw_release_time + consts::dt
+            ) {
+                // Calculate throw velocity on-the-fly
+                Eigen::Vector3d release_cup_pos = cup_positions[arm_idx];
 
-        if (ball_caught && 
-            (throw_release_time < 0 || t < throw_release_time)
-        ) {
-            // get curr cup pose and velocity from active arm
-            RigidTransformd current_cup_pose = mbp.EvalBodyPoseInWorld(
-                plant_context,
-                *arms[active_arm - 1].cup_body
-            );
-            
-            SpatialVelocity<double> cup_velocity = mbp.EvalBodySpatialVelocityInWorld(
-                plant_context,
-                *arms[active_arm - 1].cup_body
-            );
-            
-            Eigen::Vector3d current_cup_pos = current_cup_pose.translation();
-            
-            Eigen::Vector3d ball_in_cup_pos = current_cup_pos;
+                Eigen::Vector3d release_pos = release_cup_pos;
 
-            ball_in_cup_pos.z() = current_cup_pos.z() + consts::ball_cup_offset_z;
+                release_pos.z() += consts::ball_cup_offset_z;
+                
+                double angle_at_release = std::atan2(
+                    release_cup_pos.y(), 
+                    release_cup_pos.x()
+                );
+                
+                auto [throw_vel, flight_t] = CalculateThrowVelocityAndTime(
+                    release_pos,
+                    angle_at_release,
+                    consts::cup_z + consts::ball_cup_offset_z,
+                    consts::cup_radius,
+                    consts::torso_w,
+                    consts::num_rotations,
+                    consts::num_arms,
+                    g
+                );
+                
+                ball_state.throw_velocity = throw_vel;
+
+                ball_state.throw_flight_time = flight_t;
+                
+                mbp.SetFreeBodyPose(
+                    &plant_context,
+                    *ball_state.ball_body,
+                    RigidTransformd(
+                        release_pos
+                    )
+                );
+                
+                mbp.SetFreeBodySpatialVelocity(
+                    &plant_context,
+                    *ball_state.ball_body,
+                    SpatialVelocity<double>(
+                        Eigen::Vector3d::Zero(), // angular vel
+                        ball_state.throw_velocity // translational vel
+                    )
+                );
+                
+                ball_state.ball_caught = false;
+
+                ball_state.catch_time = ball_state.throw_release_time + ball_state.throw_flight_time;
+                
+                std::cout << "Ball " << (ball_idx + 1) << " released at t=" << t << " with velocity (" 
+                          << ball_state.throw_velocity.x() << ", " << ball_state.throw_velocity.y() 
+                          << ", " << ball_state.throw_velocity.z() << ")" << std::endl;
+                
+                std::cout << "Next catch scheduled at t=" << ball_state.catch_time << std::endl;
+            }
             
-            mbp.SetFreeBodyPose(
-                &plant_context,
-                *ball_body,
-                RigidTransformd(ball_in_cup_pos)
-            );
+            /** Handle ball holds in cup */
             
-            mbp.SetFreeBodySpatialVelocity(
-                &plant_context,
-                *ball_body,
-                cup_velocity
-            );
+            if (ball_state.ball_caught && 
+                (ball_state.throw_release_time < 0 || t < ball_state.throw_release_time)
+            ) {
+
+                RigidTransformd current_cup_pose = mbp.EvalBodyPoseInWorld(
+                    plant_context,
+                    *arms[arm_idx].cup_body
+                );
+                
+                SpatialVelocity<double> cup_velocity = mbp.EvalBodySpatialVelocityInWorld(
+                    plant_context,
+                    *arms[arm_idx].cup_body
+                );
+                
+                Eigen::Vector3d current_cup_pos = current_cup_pose.translation();
+
+                Eigen::Vector3d ball_in_cup_pos = current_cup_pos;
+
+                ball_in_cup_pos.z() = current_cup_pos.z() + consts::ball_cup_offset_z;
+                
+                mbp.SetFreeBodyPose(
+                    &plant_context,
+                    *ball_state.ball_body,
+                    RigidTransformd(
+                        ball_in_cup_pos
+                    )
+                );
+                
+                mbp.SetFreeBodySpatialVelocity(
+                    &plant_context,
+                    *ball_state.ball_body,
+                    cup_velocity
+                );
+            }
         }        
     
         /* DEBUG: check PID inputs/outputs before each step

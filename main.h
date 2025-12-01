@@ -14,23 +14,19 @@ struct JointTarget {
     double angle;
 };
 
-struct BallThrowState {
-    const drake::multibody::RigidBody<double>* ball;
-    double ball_drop_time;
+struct BallState {
+    const drake::multibody::RigidBody<double>* ball_body;
+    int arm_index; // arm balls belong to
     bool ball_caught;
-    int active_arm;
+    double catch_time;
+    double throw_release_time;
+    Eigen::Vector3d throw_velocity;
+    double throw_flight_time;
 };
 
-BallThrowState MaintainBallState(
-    drake::multibody::MultibodyPlant<double>* mbp,
-    const drake::multibody::RigidBody<double>* ball_body,
-    drake::systems::Context<double>* plant_context,
-    double ball_drop_height,
-    int active_arm
-);
-
 const drake::multibody::RigidBody<double>* BuildBall(
-    drake::multibody::MultibodyPlant<double>* mbp
+    drake::multibody::MultibodyPlant<double>* mbp,
+    const std::string& name = "ball"
 );
 
 struct ArmWithCup {

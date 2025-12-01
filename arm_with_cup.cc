@@ -24,7 +24,8 @@ using drake::multibody::WeldJoint;
 using drake::multibody::CoulombFriction;
 
 const drake::multibody::RigidBody<double>* BuildBall(
-    MultibodyPlant<double>* mbp
+    MultibodyPlant<double>* mbp,
+    const std::string& name
 ) {
     SpatialInertia<double> ball_inertia = SpatialInertia<double>::MakeFromCentralInertia(
         consts::ball_mass,
@@ -35,7 +36,7 @@ const drake::multibody::RigidBody<double>* BuildBall(
     );
 
     auto& ball = mbp->AddRigidBody(
-        "ball",
+        name,
         ball_inertia
     );
 
@@ -45,7 +46,7 @@ const drake::multibody::RigidBody<double>* BuildBall(
         drake::geometry::Sphere(
             consts::ball_radius
         ),
-        "ball_visual",
+        name + "_visual",
         Eigen::Vector4d(
             1.0,
             0.0,

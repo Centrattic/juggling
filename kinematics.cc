@@ -25,45 +25,6 @@ using drake::math::RigidTransformd;
 
 /* Object kinematics */
 
-BallThrowState MaintainBallState(
-    MultibodyPlant<double>* mbp,
-    const RigidBody<double>* ball_body,
-    Context<double>* plant_context,
-    double ball_drop_height,
-    int active_arm
-) {
-    
-    mbp->SetFreeBodyPose(
-        plant_context,
-        *ball_body, // need to extract reference
-        RigidTransformd(
-            Eigen::Vector3d(
-                -consts::cup_radius,  // x: aligned with cup
-                0.0,         // y: at y=0
-                ball_drop_height  // z: calculated drop height
-            )
-        )
-    );
-
-    mbp->SetFreeBodySpatialVelocity(
-        plant_context,
-        *ball_body,
-        SpatialVelocity<double>(
-            Eigen::Vector3d::Zero(),
-            Eigen::Vector3d::Zero() 
-        )
-    );
-
-    return BallThrowState{
-        ball_body,
-        0.0, // drop time for ball
-        false, // ball caught flag
-        active_arm
-    };
-}
-
-
-
 /* Calculate drop height so ball reaches cup_z when cup is at y=0.
 cup_y = 0 is when the cup (at radius cup_radius from center) aligns with y-axis
 Given torso angular velocity torso_w, we need to find when cup reaches y=0.
