@@ -116,5 +116,6 @@ std::pair<Eigen::Vector3d, double> CalculateThrowVelocityAndTime(
     double cup_radius,
     double torso_w,
     int num_rotations,
+    int num_arms,
     const Eigen::Vector3d& g
 );

@@ -6,7 +6,7 @@ namespace consts {
     constexpr double torso_height = 0.5;
     constexpr double torso_radius = 0.06;
     constexpr double torso_mass = 5.0;
-    constexpr double torso_w = 8.0;
+    constexpr double torso_w = 4.0;
 
     // links for arms
     constexpr double link_length = 0.25;
@@ -30,7 +30,7 @@ namespace consts {
     // juggling
     constexpr double hold_time = 2.0; // time to hold ball in cup before throw
     constexpr double catch_tolerance = 0.02; // high
-    constexpr int num_rotations = 2;  // num rotations before catch
+    constexpr int num_rotations = 1;  // num rotations before catch
 
     // PID gains
     constexpr double Kp = 40.0;

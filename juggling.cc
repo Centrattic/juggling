@@ -396,46 +396,46 @@ int main() {
     
     simulator.Initialize();
 
-    // calc drop height
-    const Eigen::Vector3d g(
-        0.0,
-        0.0,
-        -9.81
-    );
-
-    auto [ball_drop_height, catch_time] = CalculateDropHeightAndTime(
-        consts::cup_radius,
-        consts::cup_z + consts::ball_cup_offset_z,
-        consts::torso_w,
-        g
-    );
-
-    std::cout << "Ball drop height: " << ball_drop_height << std::endl;
-
-    std::cout << "Catch time: " << catch_time << std::endl;
+    // init ball in cup
+    int active_arm = 1; // arm 1 (index 0)
     
-    // init ball as free body at drop position
+    RigidTransformd cup_pose = mbp.EvalBodyPoseInWorld(
+        plant_context,
+        *arms[active_arm - 1].cup_body
+    );
+    
+    SpatialVelocity<double> cup_velocity = mbp.EvalBodySpatialVelocityInWorld(
+        plant_context,
+        *arms[active_arm - 1].cup_body
+    );
+    
+    Eigen::Vector3d cup_pos = cup_pose.translation();
 
-    BallThrowState ball_state = MaintainBallState(
-        &mbp,
-        ball_body,
+    Eigen::Vector3d ball_in_cup_pos = cup_pos;
+
+    ball_in_cup_pos.z() += consts::ball_cup_offset_z;
+    
+    mbp.SetFreeBodyPose(
         &plant_context,
-        ball_drop_height,
-        1 // active arm
+        *ball_body,
+        RigidTransformd(ball_in_cup_pos)
+    );
+    
+    mbp.SetFreeBodySpatialVelocity(
+        &plant_context,
+        *ball_body,
+        cup_velocity
     );
     
     // Ball state tracking
-    double ball_drop_time = ball_state.ball_drop_time;
-
-    bool ball_caught = ball_state.ball_caught;
-
-    int active_arm = ball_state.active_arm;
+    bool ball_caught = true; // cuz ball starts in cup
+    
+    double catch_time = 1e6; // initialized to large value, will be set after first throw
 
     std::cout << "Active arm: " << active_arm << std::endl;
     
     /* Throw state tracking */
-
-    double throw_release_time = -1.0; // when to release ball (-1 = not scheduled)
+    double throw_release_time = consts::hold_time;
 
     Eigen::Vector3d throw_velocity = Eigen::Vector3d::Zero();
 
@@ -486,6 +486,12 @@ int main() {
 
     std::cout << "Starting simulation..." << std::endl;
 
+    const Eigen::Vector3d g(
+        0.0,
+        0.0,
+        -9.81
+    );
+
     /* main sim loop */
 
     for (double t = 0; t < consts::t_final; t += consts::dt) {
@@ -524,7 +530,6 @@ int main() {
         }
         
         // key: same arm catches, it rotates to catch pos
-
         // arm (??) segfault check
         if (active_arm < 1 || active_arm > consts::num_arms) {
 
@@ -548,8 +553,10 @@ int main() {
             catch_cup_pos.y()
         ) < 0.1;
         
-        // Debug: print catch conditions near catch_time
-        if (!ball_caught && t >= catch_time - 0.1 && t <= catch_time + 0.5) {
+        // DEBUG: print catch conditions near catch_time
+        if (!ball_caught && 
+            t >= catch_time - 0.1 && 
+            t <= catch_time + 0.5) {
             std::cout << "t=" << t << " catch_time=" << catch_time 
                       << " cup_y=" << catch_cup_pos.y() 
                       << " ball_z=" << ball_pos.z() 
@@ -570,47 +577,10 @@ int main() {
             
             ball_caught = true;
             
-            throw_release_time = -1.0; // reset throw
-            
-            // Eigen::Vector3d release_pos = catch_cup_pos;
-            
-            // release_pos.z() += ball_cup_offset_z;
-
-            double angle_at_catch = std::atan2(
-                catch_cup_pos.y(), 
-                catch_cup_pos.x()
-            );
-
-            double angle_at_release = angle_at_catch + consts::torso_w * consts::hold_time;
-
-            Eigen::Vector3d release_pos(
-                consts::cup_radius * std::cos(
-                    angle_at_release
-                ),
-                consts::cup_radius * std::sin(
-                    angle_at_release
-                ),
-                consts::cup_z + consts::ball_cup_offset_z
-            );
-            
-            auto [throw_vel, flight_t] = CalculateThrowVelocityAndTime(
-                release_pos,
-                angle_at_release,
-                consts::cup_z + consts::ball_cup_offset_z, // target catch height, mihgt be different from release height later
-                consts::cup_radius,
-                consts::torso_w,
-                consts::num_rotations,
-                g
-            );
-            
-            throw_velocity = throw_vel;
-
-            throw_flight_time = flight_t;
-
             throw_release_time = t + consts::hold_time; // hold ball in cup before throw
             
             std::cout << "Ball caught by arm" << active_arm << " at t=" << t << ". Throw scheduled: release at t=" 
-                      << throw_release_time << ", flight_time=" << flight_t << "s" << std::endl;
+                      << throw_release_time << std::endl;
         }
         
         /* Handle ball throws */
@@ -624,12 +594,32 @@ int main() {
             Eigen::Vector3d release_cup_pos = cup_positions[active_arm - 1];
 
             Eigen::Vector3d release_pos = release_cup_pos;
-
+            
             release_pos.z() += consts::ball_cup_offset_z;
+            
+            double angle_at_release = std::atan2(
+                release_cup_pos.y(), 
+                release_cup_pos.x()
+            );
+            
+            auto [throw_vel, flight_t] = CalculateThrowVelocityAndTime(
+                release_pos,
+                angle_at_release,
+                consts::cup_z + consts::ball_cup_offset_z,
+                consts::cup_radius,
+                consts::torso_w,
+                consts::num_rotations,
+                consts::num_arms,
+                g
+            );
+            
+            throw_velocity = throw_vel;
+
+            throw_flight_time = flight_t;
             
             mbp.SetFreeBodyPose(
                 &plant_context,
-                *ball_body, // deref from method
+                *ball_body,
                 RigidTransformd(
                     release_pos
                 )
