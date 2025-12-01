@@ -22,6 +22,7 @@ struct BallState {
     double throw_release_time;
     Eigen::Vector3d throw_velocity;
     double throw_flight_time;
+    bool firstThrow;
 };
 
 const drake::multibody::RigidBody<double>* BuildBall(
@@ -49,45 +50,12 @@ ArmWithCup AddTripleLinkArmWithCup(
     double cup_height
 );
 
-Eigen::Vector3d ObjectPosition(
-    const Eigen::Vector3d& p_r,
-    const Eigen::Vector3d& v0,
-    double t,
-    double t_r,
-    const Eigen::Vector3d& g
-);
-
-Eigen::Vector3d ObjectVelocity(
-    const Eigen::Vector3d& v0,
-    double t,
-    double t_r,
-    const Eigen::Vector3d& g
-);
-
-Eigen::Vector3d ComputeThrowVelocity(
-    const Eigen::Vector3d& p_r,
-    const Eigen::Vector3d& p_c,
-    double t_r,
-    double t_c,
-    const Eigen::Vector3d& g
-);
-
 struct ThreeLinkIKSolution {
     bool success{};
     double shoulder{};
     double elbow{};
     double wrist{};
 };
-
-ThreeLinkIKSolution Solve3LinkIKWithOrientation(
-    const Eigen::Vector3d& cup_pos_W,
-    const Eigen::Vector3d& cup_direction_W, // Desired cup orientation
-    double theta_torso,
-    const Eigen::Vector3d& shoulder_T,
-    double L1,
-    double L2,
-    double L3
-);
 
 ThreeLinkIKSolution SimpleKinematicsSolution(
     const Eigen::Vector2d& cup_pos_W, // radius, z

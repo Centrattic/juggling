@@ -261,7 +261,9 @@ int main() {
 
     /* PID control */
 
-    const int m  = static_cast<int>(targets.size());
+    const int m  = static_cast<int>(
+        targets.size()
+    );
 
     const int nx = mbp.num_multibody_states();
 
@@ -269,7 +271,10 @@ int main() {
 
     const int nv = mbp.num_velocities();
 
-    Eigen::MatrixXd S(2 * m, nx);
+    Eigen::MatrixXd S(
+        2 * m,
+        nx
+    );
 
     S.setZero();
 
@@ -316,11 +321,17 @@ int main() {
 
     Eigen::VectorXd Kp(m), Ki(m), Kd(m);
 
-    Kp.setConstant(consts::Kp);
+    Kp.setConstant(
+        consts::Kp
+    );
 
-    Ki.setConstant(consts::Ki);
+    Ki.setConstant(
+        consts::Ki
+    );
 
-    Kd.setConstant(consts::Kd);
+    Kd.setConstant(
+        consts::Kd
+    );
 
     auto* pid = builder.AddSystem<PidController<double>>(
         Kp,
@@ -425,12 +436,16 @@ int main() {
         
         RigidTransformd cup_pose = mbp.EvalBodyPoseInWorld(
             plant_context,
-            *arms[i].cup_body
+            *arms[
+                i
+            ].cup_body
         );
         
         SpatialVelocity<double> cup_velocity = mbp.EvalBodySpatialVelocityInWorld(
             plant_context,
-            *arms[i].cup_body
+            *arms[
+                i
+            ].cup_body
         );
         
         Eigen::Vector3d cup_pos = cup_pose.translation();
@@ -442,7 +457,9 @@ int main() {
         // set ball position and velocity to match cup
         mbp.SetFreeBodyPose(
             &plant_context,
-            *ball_bodies[i],
+            *ball_bodies[
+                i
+            ],
             RigidTransformd(
                 ball_in_cup_pos
             )
@@ -450,11 +467,14 @@ int main() {
         
         mbp.SetFreeBodySpatialVelocity(
             &plant_context,
-            *ball_bodies[i],
+            *ball_bodies[
+                i
+            ],
             cup_velocity
         );
         
-        // Initialize ball state
+        /* initialize ball state */
+
         BallState ball_state;
 
         ball_state.ball_body = ball_bodies[i];
@@ -465,7 +485,9 @@ int main() {
 
         ball_state.catch_time = 1e6;  // initialized to large value, will be set after first throw
 
-        ball_state.throw_release_time = consts::hold_time;  // first throw after hold_time
+        ball_state.firstThrow = false;  // first throw not happened
+
+        ball_state.throw_release_time = consts::first_hold_time[i];
 
         ball_state.throw_velocity = Eigen::Vector3d::Zero();
 
@@ -475,7 +497,8 @@ int main() {
             ball_state
         );
         
-        std::cout << "Ball " << (i + 1) << " initialized in arm " << (i + 1) << std::endl;
+        std::cout << "Ball " << (i + 1) << " initialized in arm " << (i + 1) 
+                  << ", first throw scheduled at t=" << ball_state.throw_release_time << std::endl;
     }
 
     std::cout << "Simulator initialized" << std::endl;
@@ -494,7 +517,9 @@ int main() {
     std::cout << "Current velocities: " << current_velocities.transpose() << std::endl;
     
     // construct full state vector [q; v]
-    Eigen::VectorXd full_state_value(nx);
+    Eigen::VectorXd full_state_value(
+        nx
+    );
 
     full_state_value.head(nq) = current_positions;
 
@@ -554,7 +579,9 @@ int main() {
         // loop over each ball
         for (int ball_idx = 0; ball_idx < consts::num_arms; ++ball_idx) {
 
-            BallState& ball_state = ball_states[ball_idx];
+            BallState& ball_state = ball_states[
+                ball_idx
+            ];
 
             int arm_idx = ball_state.arm_index;
             
@@ -573,7 +600,9 @@ int main() {
             Eigen::Vector3d ball_velocity = ball_spatial_vel.translational();
             
             // key: same arm catches its own ball
-            Eigen::Vector3d catch_cup_pos = cup_positions[arm_idx];
+            Eigen::Vector3d catch_cup_pos = cup_positions[
+                arm_idx
+            ];
             
             /** Handle ball catches */
             
@@ -586,7 +615,16 @@ int main() {
                 
                 ball_state.ball_caught = true;
 
-                ball_state.throw_release_time = t + consts::hold_time;
+                if (!ball_state.firstThrow) {
+
+                    ball_state.throw_release_time = t + consts::first_hold_time[ball_idx];
+
+                    ball_state.firstThrow = true;
+
+                } else {
+
+                    ball_state.throw_release_time = t + consts::hold_time;
+                }
                 
                 std::cout << "Ball " << (ball_idx + 1) << " caught by arm " << (arm_idx + 1) 
                           << " at t=" << t << ". Throw scheduled: release at t=" 
@@ -601,7 +639,9 @@ int main() {
                 t < ball_state.throw_release_time + consts::dt
             ) {
                 // Calculate throw velocity on-the-fly
-                Eigen::Vector3d release_cup_pos = cup_positions[arm_idx];
+                Eigen::Vector3d release_cup_pos = cup_positions[
+                    arm_idx
+                ];
 
                 Eigen::Vector3d release_pos = release_cup_pos;
 
@@ -663,12 +703,16 @@ int main() {
 
                 RigidTransformd current_cup_pose = mbp.EvalBodyPoseInWorld(
                     plant_context,
-                    *arms[arm_idx].cup_body
+                    *arms[
+                        arm_idx
+                    ].cup_body
                 );
                 
                 SpatialVelocity<double> cup_velocity = mbp.EvalBodySpatialVelocityInWorld(
                     plant_context,
-                    *arms[arm_idx].cup_body
+                    *arms[
+                        arm_idx
+                    ].cup_body
                 );
                 
                 Eigen::Vector3d current_cup_pos = current_cup_pose.translation();
