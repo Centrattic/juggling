@@ -6,12 +6,15 @@
 #include <iostream>
 #include <thread>
 #include <chrono>
+#include <vector>
+#include <cmath>
 
 #include <drake/geometry/meshcat.h>
 #include <drake/geometry/meshcat_visualizer.h>
 #include <drake/geometry/scene_graph.h>
 #include <drake/geometry/shape_specification.h>
 #include <drake/math/rigid_transform.h>
+#include <drake/math/rotation_matrix.h>
 #include <drake/multibody/plant/multibody_plant.h>
 #include <drake/multibody/plant/coulomb_friction.h>
 #include <drake/multibody/tree/revolute_joint.h>
@@ -40,6 +43,7 @@ using drake::systems::DiagramBuilder;
 using drake::systems::controllers::PidController;
 using drake::systems::MatrixGain;
 using drake::multibody::RigidBody;
+using drake::math::RotationMatrixd;
 
 //  Note: Run ./build/juggling_demo from the /home/juggling folder
 
@@ -99,43 +103,60 @@ int main() {
         Eigen::Vector3d::UnitZ()
     );
 
-    // cup position in cylindrical coordinates
+    
+    /* creating arms, equally spaced around the torso */
 
-    ArmWithCup arm1 = AddTripleLinkArmWithCup(
-        &mbp,
-        "arm1_",
-        torso,
-        RigidTransformd( // X_WShoulder (ground weld pos)
-            Eigen::Vector3d(
-                consts::torso_radius,
-                0.0,
-                consts::torso_height
-            )
-        ),
-        consts::link_length,
-        consts::link_radius,
-        consts::link_mass,
-        consts::cup_radius,
-        consts::cup_z
-    );
+    std::vector<ArmWithCup> arms;
 
-    ArmWithCup arm2 = AddTripleLinkArmWithCup(
-        &mbp,
-        "arm2_",
-        torso,
-        RigidTransformd(
-            Eigen::Vector3d(
-                -consts::torso_radius,
-                0.0,
-                consts::torso_height
-            )
-        ),
-        consts::link_length,
-        consts::link_radius,
-        consts::link_mass,
-        consts::cup_radius,
-        consts::cup_z
+    arms.reserve(
+        consts::num_arms
     );
+    
+    for (int i = 0; i < consts::num_arms; ++i) {
+        
+        // arm angle around torso
+        double angle = 2.0 * M_PI * i / consts::num_arms;
+        
+        Eigen::Vector3d shoulder_pos(
+            -consts::torso_radius * std::cos(
+                angle
+            ),
+            consts::torso_radius * std::sin(
+                angle
+            ),
+            consts::torso_height
+        );
+
+        std::cout << "Shoulder position: " << shoulder_pos.transpose() << std::endl;
+
+        RotationMatrixd joint_frame_rotation = RotationMatrixd::MakeZRotation(
+            -angle
+        );
+
+        RigidTransformd X_PShoulder(
+            joint_frame_rotation,
+            shoulder_pos
+        );
+                
+        std::string arm_name = "arm" + std::to_string(
+            i + 1
+        ) + "_";
+        
+        arms.push_back(
+            AddTripleLinkArmWithCup(
+                &mbp,
+                arm_name,
+                torso,
+                X_PShoulder,
+                RigidTransformd::Identity(),
+                consts::link_length,
+                consts::link_radius,
+                consts::link_mass,
+                consts::cup_radius,
+                consts::cup_z
+            )
+        );
+    }
 
     auto* ball_body = BuildBall(
         &mbp
@@ -161,10 +182,10 @@ int main() {
 
     /* Defining consts and setting desired angles */
 
-    ThreeLinkIKSolution rest1 = SimpleKinematicsSolution(
+    ThreeLinkIKSolution rest_solution = SimpleKinematicsSolution(
         Eigen::Vector2d(
-            consts::cup_radius, // from torso center
-            consts::cup_z // from ground
+            consts::cup_radius,
+            consts::cup_z
         ),
         M_PI / 2.0,
         consts::torso_height,
@@ -173,79 +194,51 @@ int main() {
         consts::link_length
     );
     
-    ThreeLinkIKSolution rest2 = ThreeLinkIKSolution(
-        true,
-        -rest1.shoulder,
-        -rest1.elbow,
-        -rest1.wrist
+    if (!rest_solution.success) {
+        std::cerr << "ERROR: IK solution failed!" << std::endl;
+
+        std::cerr << "  link_length = " << consts::link_length << std::endl;
+        return 1;
+    }
+    
+    // DEBUG: IK solution 
+    std::cout << "IK solution: shoulder=" << rest_solution.shoulder 
+              << ", elbow=" << rest_solution.elbow << ", wrist=" << rest_solution.wrist << std::endl;
+    
+    std::vector<JointTarget> targets;
+
+    targets.reserve(
+        consts::num_arms * 3
     );
-
-    if (!rest1.success) {
-
-        std::cerr << "ERROR: IK solution failed for arm1!" << std::endl;
-
-        std::cerr << "  link_length = " << consts::link_length << std::endl;
-
-        return 1;
-
-    }
     
-    if (!rest2.success) {
+    for (int i = 0; i < consts::num_arms; ++i) {
 
-        std::cerr << "ERROR: IK solution failed for arm2!" << std::endl;
+        double arm_angle = 2.0 * M_PI * i / consts::num_arms;
+        
+        std::string arm_prefix = "arm" + std::to_string(
+            i + 1
+        ) + "_";
 
-        std::cerr << "  link_length = " << consts::link_length << std::endl;
-
-        return 1;
-
+        targets.push_back(
+            {
+                arm_prefix + "shoulder",
+                rest_solution.shoulder
+            }
+        );
+        
+        targets.push_back(
+            {
+                arm_prefix + "elbow",
+                rest_solution.elbow
+            }
+        );
+        targets.push_back(
+            {
+                arm_prefix + "wrist",
+                rest_solution.wrist
+            }
+        );
     }
-
-    double shoulder1_rest = rest1.shoulder;
-
-    double elbow1_rest = rest1.elbow;
-
-    double wrist1_rest = rest1.wrist;
-
-    double shoulder2_rest = rest2.shoulder;
-
-    double elbow2_rest = rest2.elbow;
-
-    double wrist2_rest = rest2.wrist;
-
-    // DEBUG: IK solutions 
-    std::cout << "IK solution - arm1: shoulder=" << shoulder1_rest 
-              << ", elbow=" << elbow1_rest << ", wrist=" << wrist1_rest << std::endl;
-              
-    std::cout << "IK solution - arm2: shoulder=" << shoulder2_rest 
-              << ", elbow=" << elbow2_rest << ", wrist=" << wrist2_rest << std::endl;
-    
-    std::vector<JointTarget> targets = {
-        {
-            "arm1_shoulder", 
-            shoulder1_rest
-        },
-        {
-            "arm1_elbow",
-            elbow1_rest
-        },
-        {
-            "arm1_wrist",
-            wrist1_rest
-        },
-        {
-            "arm2_shoulder", 
-            shoulder2_rest
-        },
-        {
-            "arm2_elbow", 
-            elbow2_rest
-        },
-
-        {
-            "arm2_wrist",
-            wrist2_rest
-        }
-    };
 
     /* PID control */
 
@@ -437,6 +430,8 @@ int main() {
     bool ball_caught = ball_state.ball_caught;
 
     int active_arm = ball_state.active_arm;
+
+    std::cout << "Active arm: " << active_arm << std::endl;
     
     /* Throw state tracking */
 
@@ -491,6 +486,8 @@ int main() {
 
     std::cout << "Starting simulation..." << std::endl;
 
+    /* main sim loop */
+
     for (double t = 0; t < consts::t_final; t += consts::dt) {
 
         RigidTransformd ball_pose = mbp.GetFreeBodyPose(
@@ -507,24 +504,35 @@ int main() {
 
         Eigen::Vector3d ball_velocity = ball_spatial_vel.translational();
         
-        RigidTransformd cup1_pose = mbp.EvalBodyPoseInWorld(
-            plant_context,
-            *arm1.cup_body
-        );
+        
+        std::vector<Eigen::Vector3d> cup_positions;
 
-        RigidTransformd cup2_pose = mbp.EvalBodyPoseInWorld(
-            plant_context,
-            *arm2.cup_body
+        cup_positions.reserve(
+            consts::num_arms
         );
         
-        Eigen::Vector3d cup1_pos_W = cup1_pose.translation();
+        for (int i = 0; i < consts::num_arms; ++i) {
 
-        Eigen::Vector3d cup2_pos_W = cup2_pose.translation();
+            RigidTransformd cup_pose = mbp.EvalBodyPoseInWorld(
+                plant_context,
+                *arms[i].cup_body
+            );
+
+            cup_positions.push_back(
+                cup_pose.translation()
+            );
+        }
         
         // key: same arm catches, it rotates to catch pos
-        Eigen::Vector3d catch_cup_pos = (
-            active_arm == 1
-        ) ? cup1_pos_W : cup2_pos_W;
+
+        // arm (??) segfault check
+        if (active_arm < 1 || active_arm > consts::num_arms) {
+
+            std::cerr << "ERROR: active_arm=" << active_arm << " is out of range [1, " << consts::num_arms << "]" << std::endl;
+            return 1;
+        }
+
+        Eigen::Vector3d catch_cup_pos = cup_positions[active_arm - 1];
         
         double catch_tolerance = consts::catch_tolerance; // high
 
@@ -613,9 +621,7 @@ int main() {
             t < throw_release_time + consts::dt
         ) {
             // release ball with throw velocity from active arm
-            Eigen::Vector3d release_cup_pos = (
-                active_arm == 1
-            ) ? cup1_pos_W : cup2_pos_W;
+            Eigen::Vector3d release_cup_pos = cup_positions[active_arm - 1];
 
             Eigen::Vector3d release_pos = release_cup_pos;
 
@@ -656,12 +662,12 @@ int main() {
             // get curr cup pose and velocity from active arm
             RigidTransformd current_cup_pose = mbp.EvalBodyPoseInWorld(
                 plant_context,
-                *(active_arm == 1 ? arm1.cup_body : arm2.cup_body)
+                *arms[active_arm - 1].cup_body
             );
             
             SpatialVelocity<double> cup_velocity = mbp.EvalBodySpatialVelocityInWorld(
                 plant_context,
-                *(active_arm == 1 ? arm1.cup_body : arm2.cup_body)
+                *arms[active_arm - 1].cup_body
             );
             
             Eigen::Vector3d current_cup_pos = current_cup_pose.translation();
@@ -683,7 +689,7 @@ int main() {
             );
         }        
     
-        /* DEBUG: check PID inputs/outputs before each step */
+        /* DEBUG: check PID inputs/outputs before each step
 
         auto current_pos = mbp.GetPositions(
             plant_context
@@ -707,9 +713,7 @@ int main() {
         
         if (static_cast<int>(t * 10) % 25 == 0) { // Every 0.5 seconds (25 steps at dt=0.02)
             std::cout << "\n=== Step at t=" << t << " ===" << std::endl;
-
             std::cout << "Ball pos: (" << ball_pos.x() << ", " << ball_pos.y() << ", " << ball_pos.z() << ")" << std::endl;
-
             std::cout << "Ball vel: (" << ball_velocity.x() << ", " << ball_velocity.y() << ", " << ball_velocity.z() << ")" << std::endl;
         }
         
@@ -726,6 +730,7 @@ int main() {
                             << " Nm (may cause numerical issues)" << std::endl;
             }
         }
+        */
 
         simulator.AdvanceTo(
             t+consts::dt

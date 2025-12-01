@@ -45,6 +45,7 @@ ArmWithCup AddTripleLinkArmWithCup(
     const std::string& name_prefix,
     const drake::multibody::Body<double>& parent_body,
     const drake::math::RigidTransformd& X_PShoulder,
+    const drake::math::RigidTransformd& X_FM_link1,
     double link_length,
     double link_radius,
     double link_mass,

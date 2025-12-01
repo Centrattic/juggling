@@ -88,8 +88,9 @@ BallThrowState MaintainBallState(
 
     return BallThrowState{
         ball_body,
-        0.9,
-        false
+        0.0, // drop time for ball
+        false, // ball caught flag
+        active_arm
     };
 }
 

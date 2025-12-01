@@ -62,7 +62,8 @@ ArmWithCup AddTripleLinkArmWithCup(
     MultibodyPlant<double>* mbp,
     const std::string& name_prefix,
     const drake::multibody::Body<double>& parent_body,
-    const RigidTransformd& X_PShoulder,  // pose of shoulder in world
+    const RigidTransformd& X_PShoulder,  // pose of shoulder joint frame in parent
+    const RigidTransformd& X_FM_link1,  // transform from joint frame to link1 body frame
     double link_length,
     double link_radius,
     double link_mass,
@@ -105,7 +106,7 @@ ArmWithCup AddTripleLinkArmWithCup(
         parent_body, // rotating juggler, not attached to world
         X_PShoulder,
         link1,
-        std::nullopt,
+        X_FM_link1,  // rotation to orient shoulder link frame
         Eigen::Vector3d::UnitY()
     );
 
