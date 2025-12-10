@@ -47,7 +47,25 @@ using drake::math::RotationMatrixd;
 
 //  Note: Run ./build/juggling_demo from the /home/juggling folder
 
+const std::string JUGGLING_OBJECT_SDF = "octahedron_01.sdf";
+
 int main() {
+
+    std::string object_model_name = JUGGLING_OBJECT_SDF;
+
+    if (object_model_name.size() > 4 && 
+        object_model_name.substr(
+            object_model_name.size() - 4
+        ) == ".sdf") {
+
+        object_model_name = object_model_name.substr(
+            0, 
+            object_model_name.size() - 4
+        );
+    }
+    
+    std::string object_sdf_path = "objects/" + JUGGLING_OBJECT_SDF;
+
     DiagramBuilder<double> builder;
 
     auto [plant, scene_graph] = drake::multibody::AddMultibodyPlantSceneGraph(
@@ -167,20 +185,15 @@ int main() {
     
     for (int i = 0; i < consts::num_arms; ++i) {
 
-        std::string ball_name = "ball" + std::to_string(
+
+        std::string object_name = object_model_name + "_" + std::to_string(
             i + 1
         );
 
-        // auto* ball_body = BuildBall(
-        //     &mbp,
-        //     ball_name
-        // );
-
         auto* ball_body = BuildObj(
             &plant,
-            ball_name,
-            "ball.sdf",
-            "ball_link"
+            object_name,
+            object_sdf_path
         );
         
 
