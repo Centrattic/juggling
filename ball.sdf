@@ -1,13 +1,10 @@
 <?xml version="1.0"?>
 <sdf version="1.7">
-  <model name="ball_new">
-    <link name="ball_link_new">
+  <model name="ball">
+    <link name="ball_link">
 
-      <!-- Inertial properties (solid sphere) -->
       <inertial>
-        <!-- Replace 1.0 with your consts::ball_mass if different -->
         <mass>1.0</mass>
-        <!-- Inertia tensor about the link frame origin (at CoM here). -->
         <inertia>
           <!-- I = 2/5 * m * r^2 = 0.001 for m=1.0, r=0.05 -->
           <ixx>0.001</ixx>
@@ -20,7 +17,7 @@
       </inertial>
 
       <!-- Visual geometry: red ball using OBJ mesh -->
-      <visual name="ball_new_visual">
+      <visual name="ball_visual">
         <geometry>
           <mesh>
             <!-- Make sure this path resolves (resource path or relative path) -->
