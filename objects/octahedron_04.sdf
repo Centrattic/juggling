@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="octahedron_variant">
+    <link name="octahedron_variant_link">
+      <inertial>
+        <mass>1.5</mass>
+        <inertia>
+          <ixx>0.096</ixx>
+          <iyy>0.096</iyy>
+          <izz>0.096</izz>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyz>0.0</iyz>
+        </inertia>
+      </inertial>
+      <visual name="octahedron_variant_visual">
+        <geometry>
+          <mesh>
+            <uri>octahedron.obj</uri>
+            <scale>1.2 1.2 1.2</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>0.8 0.2 0.2 1</diffuse>
+          <ambient>0.3 0.1 0.1 1</ambient>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="hat_variant">
+    <link name="hat_variant_link">
+      <inertial>
+        <mass>5.0</mass>
+        <inertia>
+          <ixx>0.66</ixx>
+          <iyy>0.66</iyy>
+          <izz>0.80</izz>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyz>0.0</iyz>
+        </inertia>
+      </inertial>
+      <visual name="hat_variant_visual">
+        <geometry>
+          <mesh>
+            <uri>hat.obj</uri>
+            <scale>2.0 2.0 2.0</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>0.8 0.2 0.2 1</diffuse>
+          <ambient>0.3 0.1 0.1 1</ambient>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>

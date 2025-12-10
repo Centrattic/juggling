@@ -1,0 +1,30 @@
+<?xml version="1.0"?>
+<sdf version="1.7">
+  <model name="cylinder_variant">
+    <link name="cylinder_variant_link">
+      <inertial>
+        <mass>0.5</mass>
+        <inertia>
+          <ixx>0.013</ixx>
+          <iyy>0.013</iyy>
+          <izz>0.006</izz>
+          <ixy>0.0</ixy>
+          <ixz>0.0</ixz>
+          <iyz>0.0</iyz>
+        </inertia>
+      </inertial>
+      <visual name="cylinder_variant_visual">
+        <geometry>
+          <mesh>
+            <uri>cylinder.obj</uri>
+            <scale>0.8 0.8 0.8</scale>
+          </mesh>
+        </geometry>
+        <material>
+          <diffuse>0.8 0.2 0.2 1</diffuse>
+          <ambient>0.3 0.1 0.1 1</ambient>
+        </material>
+      </visual>
+    </link>
+  </model>
+</sdf>
