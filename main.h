@@ -25,6 +25,20 @@ struct BallState {
     bool firstThrow;
 };
 
+std::string ReplaceNameInSdf(
+    std::string sdf_string,
+    const std::string& type_of_name,
+    int length_of_name,
+    const std::string& model_name
+);
+
+const drake::multibody::RigidBody<double>* BuildObj(
+    drake::multibody::MultibodyPlant<double>* mbp,
+    const std::string& name,
+    const std::string& sdf_path,
+    const std::string& link_name_in_sdf
+);
+
 const drake::multibody::RigidBody<double>* BuildBall(
     drake::multibody::MultibodyPlant<double>* mbp,
     const std::string& name = "ball"

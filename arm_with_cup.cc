@@ -1,6 +1,14 @@
 #include "main.h"
 
 #include "consts.h"
+#include <cmath>
+#include <optional>
+#include <string>
+#include <fstream>
+#include <sstream>
+#include <filesystem>
+#include <iostream>
+
 #include <drake/geometry/shape_specification.h>
 #include <drake/multibody/tree/revolute_joint.h>
 #include <drake/multibody/tree/weld_joint.h>
@@ -9,8 +17,10 @@
 #include <drake/multibody/tree/unit_inertia.h>
 #include <drake/multibody/plant/coulomb_friction.h>
 #include <drake/math/rotation_matrix.h>
-#include <cmath>
-#include <optional>
+#include "drake/multibody/parsing/parser.h"
+#include "drake/multibody/plant/multibody_plant.h"
+#include "drake/multibody/tree/rigid_body.h"
+
 
 using drake::math::RigidTransformd;
 using drake::multibody::RevoluteJoint;
@@ -22,8 +32,154 @@ using drake::geometry::Mesh;
 using drake::multibody::MultibodyPlant;
 using drake::multibody::WeldJoint;
 using drake::multibody::CoulombFriction;
+using drake::multibody::RigidBody;
+using drake::multibody::ModelInstanceIndex;
+using drake::multibody::Parser;
 
-const drake::multibody::RigidBody<double>* BuildBall(
+/* General object builder using an SDF file (which itself refers to an OBJ). Assumes the SDF describes a *single-link* rigid body.
+Modifies the SDF to use unique names: model_name, {model_name}_link, {model_name}_visual */
+
+std::string ReplaceNameInSdf(
+    std::string sdf_string,
+    const std::string& type_of_name,
+    int length_of_name,
+    const std::string& model_name
+) {
+
+    size_t name_pos = sdf_string.find(
+        "<" + type_of_name + " name=\"");
+
+    if (name_pos != std::string::npos) {
+
+        size_t name_start = name_pos + length_of_name;
+
+        size_t name_end = sdf_string.find(
+            "\"",
+            name_start
+        );
+
+        if (name_end != std::string::npos) {
+
+            std::string new_name;
+            
+            if (type_of_name == "visual" || type_of_name == "link") {
+
+                new_name = model_name + "_" + type_of_name;
+                
+            } else {
+
+                new_name = model_name;
+            }
+
+            sdf_string.replace(
+                name_start,
+                name_end - name_start,
+                new_name
+            );
+        }
+    }
+
+    return sdf_string;
+}
+
+const RigidBody<double>* BuildObj(
+    MultibodyPlant<double>* plant,
+    const std::string& model_name,
+    const std::string& sdf_path,
+    const std::string& link_name_in_sdf
+) {
+
+    DRAKE_DEMAND(
+        plant != nullptr
+    );
+
+    std::ifstream sdf_file(
+        sdf_path
+    );
+
+    if (!sdf_file.is_open()) {
+
+        throw std::runtime_error(
+            "Failed to open SDF file: " + sdf_path
+        );
+    }
+    
+    std::stringstream sdf_content;
+
+    sdf_content << sdf_file.rdbuf();
+
+    sdf_file.close();
+    
+    std::string sdf_string = sdf_content.str();
+    
+    std::string sdf_string_model = ReplaceNameInSdf(
+        sdf_string,
+        "model",
+        13,
+        model_name
+    );
+
+    std::string sdf_string_link = ReplaceNameInSdf(
+        sdf_string_model,
+        "link",
+        12,
+        model_name
+    );
+
+    std::string sdf_string_visual = ReplaceNameInSdf(
+        sdf_string_link,
+        "visual",
+        14,
+        model_name
+    );
+    
+    // write modified SDF to a temporary file
+    std::string temp_sdf_path = model_name + "_temp.sdf";
+
+    std::ofstream temp_file(
+        temp_sdf_path
+    );
+
+    if (!temp_file.is_open()) {
+
+        throw std::runtime_error(
+            "Failed to create temporary SDF file: " + temp_sdf_path
+        );
+    }
+
+    temp_file << sdf_string_visual;
+    
+    temp_file.close();
+    
+    Parser parser(
+        plant
+    );
+
+    std::vector<ModelInstanceIndex> instances =
+        parser.AddModels(
+            temp_sdf_path
+        );
+    
+    std::filesystem::remove(
+        temp_sdf_path
+    );
+    
+    ModelInstanceIndex instance_index = instances[0];
+    
+    // new link name
+    std::string actual_link_name = model_name + "_link";
+
+    const auto& body =
+        plant->GetBodyByName(
+            actual_link_name,
+            instance_index
+        );
+
+    return &body;
+}
+
+
+const RigidBody<double>* BuildBall(
     MultibodyPlant<double>* mbp,
     const std::string& name
 ) {

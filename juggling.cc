@@ -171,10 +171,18 @@ int main() {
             i + 1
         );
 
-        auto* ball_body = BuildBall(
-            &mbp,
-            ball_name
+        // auto* ball_body = BuildBall(
+        //     &mbp,
+        //     ball_name
+        // );
+
+        auto* ball_body = BuildObj(
+            &plant,
+            ball_name,
+            "ball.sdf",
+            "ball_link"
         );
+        
 
         ball_bodies.push_back(
             ball_body
