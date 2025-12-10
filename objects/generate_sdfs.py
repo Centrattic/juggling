@@ -61,7 +61,7 @@ def generate_sdfs():
                 'iyy': iyy,
                 'izz': izz,
                 'obj_filename': row['obj_filename'],
-                'scale': row['size']
+                'scale': str(float(row['size'])/10)
             }
             
             filename = row['sdf_file']

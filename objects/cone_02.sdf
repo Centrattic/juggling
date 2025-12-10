@@ -17,7 +17,7 @@
         <geometry>
           <mesh>
             <uri>cone.obj</uri>
-            <scale>0.8 0.8 0.8</scale>
+            <scale>0.08 0.08 0.08</scale>
           </mesh>
         </geometry>
         <material>
