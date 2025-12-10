@@ -35,8 +35,7 @@ std::string ReplaceNameInSdf(
 const drake::multibody::RigidBody<double>* BuildObj(
     drake::multibody::MultibodyPlant<double>* mbp,
     const std::string& name,
-    const std::string& sdf_path,
-    const std::string& link_name_in_sdf
+    const std::string& sdf_path
 );
 
 const drake::multibody::RigidBody<double>* BuildBall(

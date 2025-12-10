@@ -14,14 +14,13 @@
 #include <drake/solvers/solve.h>
 #include <drake/math/rigid_transform.h>
 
-
 using drake::multibody::MultibodyPlant;
 using drake::multibody::RigidBody;
 using drake::multibody::SpatialVelocity;
 using drake::systems::Context;
 using drake::math::RigidTransformd;
 
-// To Do: create consts .cc file
+// oops mass doesn't rlly matter at all...
 
 /* Object kinematics */
 

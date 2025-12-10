@@ -85,8 +85,7 @@ std::string ReplaceNameInSdf(
 const RigidBody<double>* BuildObj(
     MultibodyPlant<double>* plant,
     const std::string& model_name,
-    const std::string& sdf_path,
-    const std::string& link_name_in_sdf
+    const std::string& sdf_path
 ) {
 
     DRAKE_DEMAND(
@@ -133,8 +132,8 @@ const RigidBody<double>* BuildObj(
         model_name
     );
     
-    // write modified SDF to a temporary file
-    std::string temp_sdf_path = model_name + "_temp.sdf";
+    // write modified SDF to a temporary file in objects/ folder
+    std::string temp_sdf_path = "objects/" + model_name + "_temp.sdf";
 
     std::ofstream temp_file(
         temp_sdf_path
@@ -155,8 +154,7 @@ const RigidBody<double>* BuildObj(
         plant
     );
 
-    std::vector<ModelInstanceIndex> instances =
-        parser.AddModels(
+    std::vector<ModelInstanceIndex> instances = parser.AddModels(
             temp_sdf_path
         );
     
