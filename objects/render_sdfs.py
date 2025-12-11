@@ -48,10 +48,21 @@ def render_object(obj_path, scale, color, output_path, resolution=(800, 600)):
     if scale != 1.0:
         mesh.apply_scale(scale)
     
-    if hasattr(mesh.visual, 'vertex_colors'):
-        mesh.visual.vertex_colors = [int(c * 255) for c in color] + [255]
+    # Set color - need to create arrays with proper shape
+    color_rgba = np.array([int(c * 255) for c in color] + [255], dtype=np.uint8)
+    
+    # Try to set face colors (most common)
+    if hasattr(mesh.visual, 'face_colors'):
+        num_faces = len(mesh.faces)
+        mesh.visual.face_colors = np.tile(color_rgba, (num_faces, 1))
+    elif hasattr(mesh.visual, 'vertex_colors'):
+        num_vertices = len(mesh.vertices)
+        mesh.visual.vertex_colors = np.tile(color_rgba, (num_vertices, 1))
     else:
-        mesh.visual.face_colors = [int(c * 255) for c in color] + [255]
+        # Create a simple material color
+        mesh.visual.material = trimesh.visual.material.SimpleMaterial(
+            diffuse=color + [1.0]
+        )
     
     scene = trimesh.Scene([mesh])
     
