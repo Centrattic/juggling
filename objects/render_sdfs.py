@@ -66,16 +66,41 @@ def render_object(obj_path, scale, color, output_path, resolution=(800, 600)):
     
     scene = trimesh.Scene([mesh])
     
+    # Set up camera to view the object nicely
     bounds = scene.bounds
     center = bounds.mean(axis=0)
-    scene.camera_transform = scene.camera.look_at(
-        points=[center],
-        rotation=np.eye(3)
-    )
-    
     size = bounds.ptp().max()
-    distance = size * 2.5
-    scene.camera_transform[:3, 3] = center + np.array([distance, distance * 0.5, distance * 0.8])
+    
+    # Position camera at a good distance and angle
+    camera_distance = size * 2.5
+    camera_position = center + np.array([camera_distance, camera_distance * 0.5, camera_distance * 0.8])
+    
+    # Create camera transform manually to avoid shape issues
+    transform_4x4 = np.eye(4, dtype=np.float64)
+    
+    # Calculate direction from camera to center
+    direction = center - camera_position
+    direction = direction / (np.linalg.norm(direction) + 1e-8)
+    
+    # Create orthonormal basis for camera
+    up = np.array([0, 0, 1], dtype=np.float64)
+    right = np.cross(direction, up)
+    if np.linalg.norm(right) < 1e-6:
+        # If direction is parallel to up, use a different up vector
+        up = np.array([0, 1, 0], dtype=np.float64)
+        right = np.cross(direction, up)
+    right = right / (np.linalg.norm(right) + 1e-8)
+    up = np.cross(right, direction)
+    up = up / (np.linalg.norm(up) + 1e-8)
+    
+    # Set rotation part (camera looks along -direction)
+    transform_4x4[:3, 0] = right
+    transform_4x4[:3, 1] = up
+    transform_4x4[:3, 2] = -direction
+    # Set translation part
+    transform_4x4[:3, 3] = camera_position
+    
+    scene.camera_transform = transform_4x4
     
     png = scene.save_image(resolution=resolution)
     

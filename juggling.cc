@@ -22,6 +22,7 @@
 #include <drake/multibody/math/spatial_velocity.h>
 #include <drake/multibody/tree/unit_inertia.h>
 #include <drake/multibody/tree/weld_joint.h>
+#include <drake/multibody/tree/rotational_inertia.h>
 #include <drake/systems/analysis/simulator.h>
 #include <drake/systems/framework/diagram_builder.h>
 #include <drake/geometry/shape_specification.h>
@@ -39,6 +40,7 @@ using drake::multibody::SpatialInertia;
 using drake::multibody::SpatialVelocity;
 using drake::multibody::UnitInertia;
 using drake::multibody::WeldJoint;
+using drake::multibody::RotationalInertia;
 using drake::systems::DiagramBuilder;
 using drake::systems::controllers::PidController;
 using drake::systems::MatrixGain;
@@ -47,7 +49,7 @@ using drake::math::RotationMatrixd;
 
 //  Note: Run ./build/juggling_demo from the /home/juggling folder
 
-const std::string JUGGLING_OBJECT_SDF = "octahedron_01.sdf";
+const std::string JUGGLING_OBJECT_SDF = "hat_01.sdf";
 
 int main() {
 
@@ -568,6 +570,19 @@ int main() {
         -9.81
     );
 
+    // error tracking variables
+    double total_catch_error = 0.0;
+
+    int total_catch_count = 0;
+    
+    /* SUS */
+    // track actual cup position at catch to learn the effective rest position??
+    double measured_rest_cup_radius = consts::cup_radius; // start with expected, update as we learn
+
+    double measured_rest_cup_z = consts::cup_z; // start with expected, update as we learn
+
+    int rest_position_measurements = 0;
+
     /* main sim loop */
 
     for (double t = 0; t < consts::t_final; t += consts::dt) {
@@ -627,6 +642,42 @@ int main() {
             ) {
                 std::cout << "Ball " << (ball_idx + 1) << " caught at time " << t << std::endl;
                 
+                /* Calculate avg catch error: distance from ball position to center of cup at catch moment */
+                Eigen::Vector3d ball_in_cup_pos = catch_cup_pos;
+
+                ball_in_cup_pos.z() += consts::ball_cup_offset_z;
+                
+                double catch_error = (
+                    ball_pos - ball_in_cup_pos
+                ).norm();
+
+                total_catch_error += catch_error;
+
+                total_catch_count++;
+                
+                std::cout << "  Catch error (used for average): " << catch_error << " m" << std::endl;
+                
+                /* SUS */
+                double actual_cup_radius = std::sqrt(
+                    catch_cup_pos.x() * catch_cup_pos.x() + 
+                    catch_cup_pos.y() * catch_cup_pos.y()
+                );
+
+                double actual_cup_z = catch_cup_pos.z();
+
+                if (rest_position_measurements == 0) {
+                    measured_rest_cup_radius = actual_cup_radius;
+                    measured_rest_cup_z = actual_cup_z;
+
+                } else {
+
+                    double alpha = 0.3; // lr
+                    measured_rest_cup_radius = alpha * actual_cup_radius + (1.0 - alpha) * measured_rest_cup_radius;
+                    measured_rest_cup_z = alpha * actual_cup_z + (1.0 - alpha) * measured_rest_cup_z;
+                }
+                
+                rest_position_measurements++;
+                
                 ball_state.ball_caught = true;
 
                 if (!ball_state.firstThrow) {
@@ -667,11 +718,45 @@ int main() {
                     release_cup_pos.x()
                 );
                 
+                /* SUS */
+                double effective_rest_radius = measured_rest_cup_radius;
+                double effective_rest_z = measured_rest_cup_z;
+                if (rest_position_measurements == 0) {
+
+                    double release_radius = std::sqrt(
+                        release_cup_pos.x() * release_cup_pos.x() + 
+                        release_cup_pos.y() * release_cup_pos.y()
+                    );
+
+                    effective_rest_radius = release_radius;
+
+                    effective_rest_z = release_cup_pos.z();
+                }
+                
+                // catch angle: release angle + angular displacement
+                double angular_displacement = 2.0 * M_PI / consts::num_arms;
+
+                double catch_angle = angle_at_release + angular_displacement;
+                
+                // pred catch position
+                Eigen::Vector3d predicted_catch_cup_pos(
+                    effective_rest_radius * std::cos(
+                        catch_angle
+                    ),
+                    effective_rest_radius * std::sin(
+                        catch_angle
+                    ),
+                    effective_rest_z
+                );
+                
+                // ball catch position (cup position + offset)
+                Eigen::Vector3d predicted_catch_pos = predicted_catch_cup_pos;
+                
+                predicted_catch_pos.z() += consts::ball_cup_offset_z;
+                
                 auto [throw_vel, flight_t] = CalculateThrowVelocityAndTime(
                     release_pos,
-                    angle_at_release,
-                    consts::cup_z + consts::ball_cup_offset_z,
-                    consts::cup_radius,
+                    predicted_catch_pos,
                     consts::torso_w,
                     consts::num_rotations,
                     consts::num_arms,
@@ -868,6 +953,7 @@ int main() {
                     cup_velocity
                 );
             }
+            
         }        
     
         /* DEBUG: check PID inputs/outputs before each step
@@ -917,12 +1003,23 @@ int main() {
             t+consts::dt
         );
 
-        // std::this_thread::sleep_for(
-        //     std::chrono::milliseconds(
-        //         150
-        //     )
-        // );
+        std::this_thread::sleep_for(
+            std::chrono::milliseconds(
+                100
+            )
+        );
 
+    }
+
+    // Calculate and output average catch error
+    if (total_catch_count > 0) {
+        double average_catch_error = total_catch_error / total_catch_count;
+        std::cout << "\n=== Catch Error Statistics ===" << std::endl;
+        std::cout << "Total catches: " << total_catch_count << std::endl;
+        std::cout << "Average catch error: " << average_catch_error << " m" << std::endl;
+        std::cout << "=============================\n" << std::endl;
+    } else {
+        std::cout << "\nNo catches recorded during simulation." << std::endl;
     }
 
     std::cout << "Simulation done. Press Enter to exit..." << std::endl;

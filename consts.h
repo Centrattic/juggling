@@ -22,16 +22,19 @@ namespace consts {
     constexpr int num_arms = 3; // number of arms equally spaced around torso, also number of ball
     constexpr double ball_radius = 0.05;
     constexpr double ball_mass = 0.1;
+    
+    // drag (linear drag coefficient: F = -drag_coefficient * v)
+    constexpr double drag_coefficient = 0.01; // kg/s, reasonable for small objects in air
 
     // simulation
-    constexpr double t_final = 60.0;
+    constexpr double t_final = 10.0;
     constexpr double dt = 0.01;
 
     // juggling
     constexpr double hold_time = 2.0; // time to hold ball in cup before throw
     constexpr double catch_tolerance = 0.02; // high
     constexpr int num_rotations = 1;  // num rotations before catch
-    constexpr double throw_motion_delta = 0.005; // time to move arm for throw motion, < hold_time/2
+    constexpr double throw_motion_delta = 0.008; // time to move arm for throw motion, < hold_time/2
 
     // flight time is around 1.198s (calculated from: (2pi * num_rotations + 2pi/num_arms) / torso_w)
     // we want to space so balls overlap in air
@@ -42,7 +45,7 @@ namespace consts {
     };
 
     // PID gains
-    constexpr double Kp = 40.0;
+    constexpr double Kp = 60.0;
     constexpr double Ki = 0.0;
     constexpr double Kd = 2.0;
 }

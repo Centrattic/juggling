@@ -88,9 +88,7 @@ std::pair<double, double> CalculateDropHeightAndTime(
 
 std::pair<Eigen::Vector3d, double> CalculateThrowVelocityAndTime(
     const Eigen::Vector3d& release_pos,
-    double angle_at_release,
-    double target_z,
-    double cup_radius,
+    const Eigen::Vector3d& catch_pos,
     double torso_w,
     int num_rotations,
     int num_arms,

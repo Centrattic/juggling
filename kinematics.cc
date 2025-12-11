@@ -54,9 +54,7 @@ Returns: {throw_velocity, flight_time} */
 
 std::pair<Eigen::Vector3d, double> CalculateThrowVelocityAndTime(
     const Eigen::Vector3d& release_pos, // ball release pos
-    double angle_at_release,
-    double target_z, // target catch height
-    double cup_radius, // radius of cup from torso center
+    const Eigen::Vector3d& catch_pos, // predicted catch position (ball center)
     double torso_w,
     int num_rotations, // num rots before catch
     int num_arms,
@@ -69,36 +67,12 @@ std::pair<Eigen::Vector3d, double> CalculateThrowVelocityAndTime(
         2.0 * M_PI * num_rotations + angular_displacement
     ) / torso_w;
     
-    // Ball needs to go up and come back down to target_z in flight_time
-    // Using: target_z = release_pos.z + v0.z * t + 0.5 * g.z * t^2
-    // Solving for v0.z: v0.z = (target_z - release_pos.z - 0.5 * g.z * t^2) / t
-    // Since target_z = release_pos.z (same height), this simplifies to:
-    double v0_z = -0.5 * g.z() * flight_time;
+    // Calculate throw velocity to hit catch_pos
+    // Using: catch_pos = release_pos + v0 * t + 0.5 * g * t^2
+    // Solving: v0 = (catch_pos - release_pos - 0.5 * g * t^2) / t
+    Eigen::Vector3d displacement = catch_pos - release_pos;
     
-    double catch_angle = angle_at_release + angular_displacement;
-
-    Eigen::Vector3d catch_pos(
-        cup_radius * std::cos(
-            catch_angle
-        ),
-        cup_radius * std::sin(
-            catch_angle
-        ),
-        target_z
-    );
-
-    // Calculate horizontal displacement
-    Eigen::Vector2d horizontal_displacement = (
-        catch_pos - release_pos
-    ).head<2>();
-
-    Eigen::Vector2d v0_xy = horizontal_displacement / flight_time;
-
-    Eigen::Vector3d throw_velocity(
-        v0_xy.x(),
-        v0_xy.y(), // there is y-component since released at non y=0 position
-        v0_z
-    );
+    Eigen::Vector3d throw_velocity = (displacement - 0.5 * g * flight_time * flight_time) / flight_time;
     
     return {
         throw_velocity,
